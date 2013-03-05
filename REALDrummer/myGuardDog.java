@@ -279,21 +279,26 @@ public class myGuardDog extends JavaPlugin implements Listener {
 	}
 
 	public static final String singularizeItemName(String plural) {
+		String data_suffix = "";
+		if (plural.endsWith("\\)")) {
+			data_suffix = plural.substring(plural.indexOf("(") - 1);
+			plural = plural.substring(0, plural.indexOf("(") - 1);
+		}
 		// for "cacti"
 		if (plural.equals("cacti"))
-			return "a cactus";
+			return "a cactus" + data_suffix;
 		else if (plural.equals("leaves"))
-			return "some leaves";
+			return "some leaves" + data_suffix;
 		// for "es" pluralizations
 		else if (plural.equals("dead bushes") || plural.equals("jukeboxes") || plural.equals("compasses") || plural.endsWith("potatoes") || plural.endsWith("torches"))
 			if (!plural.startsWith("a") && !plural.startsWith("e") && !plural.startsWith("i") && !plural.startsWith("o") && !plural.startsWith("u"))
-				return "a " + plural.substring(0, plural.length() - 2);
+				return "a " + plural.substring(0, plural.length() - 2) + data_suffix;
 			else
-				return "an " + plural.substring(0, plural.length() - 2);
+				return "an " + plural.substring(0, plural.length() - 2) + data_suffix;
 		// for things that need to stay plural because they come in sets
 		else if (plural.equals("iron bars") || plural.equals("Nether warts") || plural.equals("shears") || plural.endsWith("pants") || plural.endsWith("boots")
 				|| plural.endsWith("seeds") || plural.endsWith("stairs") || plural.endsWith("bricks") || plural.endsWith("leggings"))
-			return "some " + plural;
+			return "some " + plural + data_suffix;
 		// for things where the pluralization is not just at the end, e.g. "EYES of Ender"-->"AN EYE of Ender" or "CARROTS on STICKS"-->"A CARROT on A STICK"
 		else if (plural.split(" ").length >= 3 && plural.split(" ")[0].endsWith("s") && !plural.split(" ")[0].equals("lapis")) {
 			String complex_singular = plural.substring(0, plural.indexOf("s "));
@@ -306,18 +311,23 @@ public class myGuardDog extends JavaPlugin implements Listener {
 			String temp = plural.split(" ")[plural.split(" ").length - 1];
 			if (temp.endsWith("s"))
 				temp = "a " + temp.substring(0, temp.length() - 1);
-			return complex_singular + temp;
+			return complex_singular + temp + data_suffix;
 		} else if (plural.endsWith("s") && !plural.endsWith("ss"))
 			if (!plural.toLowerCase().startsWith("a") && !plural.toLowerCase().startsWith("e") && !plural.toLowerCase().startsWith("i")
 					&& !plural.toLowerCase().startsWith("o") && !plural.toLowerCase().startsWith("u") && !plural.startsWith("\"11"))
-				return "a " + plural.substring(0, plural.length() - 1);
+				return "a " + plural.substring(0, plural.length() - 1) + data_suffix;
 			else
-				return "an " + plural.substring(0, plural.length() - 1);
+				return "an " + plural.substring(0, plural.length() - 1) + data_suffix;
 		else
-			return "some " + plural;
+			return "some " + plural + data_suffix;
 	}
 
 	public static final String pluralizeItemName(String singular) {
+		String data_suffix = "";
+		if (singular.endsWith("\\)")) {
+			data_suffix = singular.substring(singular.indexOf("(") - 1);
+			singular = singular.substring(0, singular.indexOf("(") - 1);
+		}
 		// remove the article at the beginning
 		if (singular.startsWith("a "))
 			singular = singular.substring(2);
@@ -327,24 +337,24 @@ public class myGuardDog extends JavaPlugin implements Listener {
 			return singular.substring(5);
 		// for "cacti"
 		if (singular.equals("cactus"))
-			return "cacti";
+			return "cacti" + data_suffix;
 		// for "es" pluralizations
 		else if (singular.equals("dead bush") || singular.equals("jukebox") || singular.equals("compass") || singular.endsWith("potato") || singular.endsWith("torch"))
-			return singular + "es";
+			return singular + "es" + data_suffix;
 		// for things that needed to stay singular because they came in sets
 		else if (singular.endsWith("s"))
-			return singular;
+			return singular + data_suffix;
 		// for things where the singularization is not just at the end
 		else if (singular.split(" ").length >= 3 && (singular.contains(" of ") || singular.contains(" o' ") || singular.contains(" on ") || singular.contains(" and "))
 				|| singular.contains(" by ")) {
 			singular = singular.split(" ")[0] + "s" + singular.substring(singular.split(" ")[0].length());
 			if (singular.contains(" a ") || singular.contains(" an "))
 				singular = singular + "s";
-			return singular.replaceAll(" a ", " ").replaceAll(" an ", " ").replaceAll(" the ", " ");
+			return singular.replaceAll(" a ", " ").replaceAll(" an ", " ").replaceAll(" the ", " ") + data_suffix;
 		} else if (!singular.endsWith("ss"))
-			return singular + "s";
+			return singular + "s" + data_suffix;
 		else
-			return singular;
+			return singular + data_suffix;
 	}
 
 	public static int translateStringtoTimeInms(String written) {

@@ -25,95 +25,28 @@ public class Event {
 	public boolean rolled_back;
 
 	public Event(String cause, String action, Block object, Boolean in_Creative_Mode) {
-		objects = new String[1];
-		// derive the name of the object
-		try {
-			// try getting the item name with the I.D. and data provided
-			String item_name = myPluginWiki.getItemName(object.getTypeId(), object.getData());
-			// if that doesn't work, try subtracting 4 from the data until we can't any more (using %) and add "([data])" to the end of the name
-			if (item_name == null) {
-				item_name = myPluginWiki.getItemName(object.getTypeId(), object.getData() % 4);
-				if (item_name != null)
-					item_name += " (" + object.getData() + ")";
-				// if that doesn't work, just use 0 for the data to find the name and add "([data])" to the end of the name
-				else {
-					item_name = myPluginWiki.getItemName(object.getTypeId(), 0);
-					if (item_name != null)
-						item_name += " (" + object.getData() + ")";
-					// finally, if that doesn't work, make the name "something with the I.D. [id]:(data)"
-					else {
-						item_name = "something with the I.D. " + object.getTypeId();
-						if (object.getData() != 0)
-							item_name += ":" + object.getData();
-					}
-				}
-			}
-			objects = new String[] { item_name };
-		} catch (ArrayIndexOutOfBoundsException exception) {
-			objects = new String[] { "something with the I.D. " + object.getTypeId() };
-			if (object.getData() != 0)
-				objects[0] += ":" + object.getData();
-		}
-		// with Block or Entity objects, we can get the Location form the object, so just initialize that here and don't initialize it later
-		location = object.getLocation();
-		initializeOtherVariables(cause, action, null, in_Creative_Mode);
+		objects = new String[] { myPluginWiki.getItemName(object.getTypeId(), object.getData(), true) };
+		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
 	public Event(String cause, String action, Entity object, Boolean in_Creative_Mode) {
 		objects = new String[1];
-		// derive the name of the object
-		try {
-			// try getting the item name with the I.D. and data provided
-			String entity_name = null;
-			if (object instanceof Villager)
-				// villager = 120
-				entity_name = myPluginWiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId());
-			else
-				entity_name = myPluginWiki.getEntityName(object.getType().getTypeId(), (byte) -1);
-			// if that doesn't work, make the name "something with the I.D. [id]:(data)"
-			if (entity_name == null)
-				entity_name = "something with the I.D. " + object.getType().getTypeId();
-			// if it did work, replace the
-			objects = new String[] { entity_name };
-		} catch (ArrayIndexOutOfBoundsException exception) {
-			objects = new String[] { "something with the I.D. " + object.getType().getTypeId() };
-		}
-		// with Block or Entity objects, we can get the Location form the object, so just initialize that here and don't initialize it later
-		location = object.getLocation();
-		initializeOtherVariables(cause, action, null, in_Creative_Mode);
+		// try getting the item name with the I.D. and data provided
+		if (object instanceof Villager)
+			// villager = 120
+			objects[0] = myPluginWiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true);
+		else
+			objects[0] = myPluginWiki.getEntityName(object.getType().getTypeId(), (byte) -1, true);
+		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
 	public Event(String cause, String action, ItemStack[] items, Location location, Boolean in_Creative_Mode) {
 		objects = new String[items.length];
 		// derive the names of the items
 		for (int i = 0; i < items.length; i++) {
-			// try getting the item name with the I.D. and data provided
-			// this time, we need to keep the data suffix ("([data])") separate so we can singularize the item name at the end if there is only one
-			String item_name = myPluginWiki.getItemName(items[i].getTypeId(), items[i].getData().getData()), data_suffix = null;
-			// if that doesn't work, try subtracting 4 from the data until we can't any more (using %) and add "([data])" to the end of the name
-			if (item_name == null) {
-				item_name = myPluginWiki.getItemName(items[i].getTypeId(), items[i].getData().getData() % 4);
-				if (item_name != null)
-					data_suffix += " (" + items[i].getData().getData() + ")";
-				// if that doesn't work, just use 0 for the data to find the name and add "([data])" to the end of the name
-				else {
-					item_name = myPluginWiki.getItemName(items[i].getTypeId(), 0);
-					if (item_name != null)
-						data_suffix += " (" + items[i].getData().getData() + ")";
-					// finally, if that doesn't work, make the name "something with the I.D. [id]:(data)"
-					else {
-						item_name = "something with the I.D. " + items[i].getTypeId();
-						if (items[i].getData().getData() != 0)
-							item_name += ":" + items[i].getData().getData();
-					}
-				}
-			}
+			objects[i] = myPluginWiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true);
 			if (items[i].getAmount() == 1)
-				objects[i] = myGuardDog.singularizeItemName(item_name);
-			else if (items[i].getAmount() > 1)
-				objects[i] = items[i].getAmount() + " " + item_name;
-			if (data_suffix != null)
-				objects[i] += data_suffix;
+				objects[i] = myGuardDog.singularizeItemName(objects[i]);
 		}
 		initializeOtherVariables(cause, action, location, in_Creative_Mode);
 	}
@@ -131,9 +64,7 @@ public class Event {
 		// establish initiator variables
 		action = my_action;
 		cause = my_cause;
-		// if my_location is null, that means location was already initialized earlier using a Block or Entity object in one of the first two Event constructors
-		if (my_location != null)
-			location = my_location;
+		location = my_location;
 		x = location.getBlockX();
 		y = location.getBlockY();
 		z = location.getBlockZ();
@@ -203,7 +134,7 @@ public class Event {
 			save_line = save_line + "\" while in Creative Mode.";
 		else
 			save_line = save_line + "\" while in Survival Mode.";
-		// myGuardDog.console.sendMessage(save_line);
+		myGuardDog.console.sendMessage(save_line);
 	}
 
 	public Event(String my_save_line) {
