@@ -25,14 +25,15 @@ public class TimedMethod implements Runnable {
 
 	// for trackTNT()
 	private Entity new_primed_TNT = null;
-	// for saveTheLogsPartIChrono
-	private File log_file = null;
-	private int split_index = -1;
 	// for all the saveTheLogs[...]() methods
 	private ArrayList<Event> events_to_save = new ArrayList<Event>();
 	private int iterations = 0;
 	private boolean display_message = true;
 	private String[] parameters = null;
+	private boolean hard_save = false;
+	// for saveTheLogsPartIChrono
+	private File log_file = null;
+	private int split_index = -1;
 	// for rollBackPartI()
 	private BufferedReader in = null;
 	private int log_counter = 0, radius = -1;
@@ -68,10 +69,12 @@ public class TimedMethod implements Runnable {
 			trackReactionBreaks((Location) os[0], (Event) os[1]);
 		else if (method.equals("track Enderman placements"))
 			trackEndermanPlacements((Block) os[0]);
-		else if (method.equals("save the logs") || method.equals("roll back")) {
+		else if (method.equals("save the logs") || method.equals("roll back") || method.equals("hard save")) {
 			display_message = (Boolean) os[0];
 			if (method.equals("roll back"))
 				parameters = (String[]) os[1];
+			else if (method.equals("hard save"))
+				hard_save = true;
 			saveTheLogsPartIChrono();
 		} else if (method.equals("saveTheLogsPartIChrono"))
 			saveTheLogsPartIChrono();
@@ -207,7 +210,7 @@ public class TimedMethod implements Runnable {
 			return;
 		}
 		iterations++;
-		if (!myGuardDog.hard_save)
+		if (!hard_save)
 			myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 1);
 		else
 			run();
@@ -260,7 +263,7 @@ public class TimedMethod implements Runnable {
 			return;
 		}
 		iterations++;
-		if (!myGuardDog.hard_save)
+		if (!hard_save)
 			myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 1);
 		else
 			run();
@@ -272,7 +275,7 @@ public class TimedMethod implements Runnable {
 			for (int i = events_to_save.size() - 1 - 20 * iterations; i > events_to_save.size() - 1 - 20 * iterations - 20; i--) {
 				if (i < 0) {
 					myGuardDog.save_in_progress = false;
-					myGuardDog.hard_save = false;
+					hard_save = false;
 					// confirm that the saving is complete
 					if (display_message) {
 						if (events_to_save.size() == 1)
@@ -375,7 +378,7 @@ public class TimedMethod implements Runnable {
 			return;
 		}
 		iterations++;
-		if (!myGuardDog.hard_save)
+		if (!hard_save)
 			myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 1);
 		else
 			run();
@@ -641,7 +644,7 @@ public class TimedMethod implements Runnable {
 				}
 		} else if (event.action.equals("broke") || event.action.equals("burned") || event.action.equals("creeper'd") || event.action.equals("T.N.T.'d")
 				|| event.action.equals("blew up")) {
-			Integer id = myPluginWiki.getItemIdAndData(event.objects[0].split(" "))[0];
+			Integer id = Wiki.getItemIdAndData(event.objects[0].split(" "))[0];
 			if (id != null)
 				event.location.getBlock().setTypeId(id);
 			else {

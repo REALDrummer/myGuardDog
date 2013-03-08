@@ -2,7 +2,7 @@ package REALDrummer;
 
 import org.bukkit.ChatColor;
 
-public class myPluginWiki {
+public class Wiki {
 	// String[item I.D.][special data][all the names that could be applied to that item]
 	// the special data works like this:
 	// [0] is the name for the overall item, e.g. "logs" for any type of log, which all have the I.D. 17; the other indexes are [data+1], e.g. birch logs (I.D.
@@ -545,6 +545,64 @@ public class myPluginWiki {
 
 	// TODO: test
 
+	public static String getItemIdAndDataString(String[] item_name) {
+		Integer result_id = null, result_data = null, result_i = null;
+		for (int id = 0; id < item_IDs.length; id++)
+			if (item_IDs[id] != null)
+				for (int data = 0; data < item_IDs[id].length; data++)
+					if (item_IDs[id][data] != null)
+						for (int i = 0; i < item_IDs[id][data].length; i++) {
+							boolean contains_query = true;
+							for (String word : item_name)
+								if (!item_IDs[id][data][i].toLowerCase().contains(word.toLowerCase())) {
+									contains_query = false;
+									break;
+								}
+							// translation of this if statement: if the item contains the query and either we haven't found another result yet, the old result
+							// has a longer name than this new one, or the length of the names is the same but this new result is an item I.D. while the old one
+							// is a block I.D., then change the current result to this new item
+							if (contains_query
+									&& (result_id == null || item_IDs[result_id][result_data][result_i].length() > item_IDs[id][data][i].length() || (item_IDs[result_id][result_data][result_i]
+											.length() == item_IDs[id][data][i].length()
+											&& result_id < 256 && id >= 256))) {
+								result_id = id;
+								result_data = data;
+								result_i = i;
+							}
+						}
+		if (result_id == null)
+			return null;
+		// subtract 1 from the data to get the real data (remember: [0] is the general name and [1] is data = 0)
+		result_data -= 1;
+		// now we need to adjust the final result based on the gaps in I.D.s
+		if (result_id != null) {
+			// for the I.D. gaps
+			for (short[] gap : item_gaps)
+				if (result_id > gap[0])
+					result_id += (gap[1] - gap[0]);
+				else
+					break;
+			// for the potion data values gaps
+			if (result_id == 373)
+				for (short[] gap : potion_data_gaps)
+					if (result_data > gap[0])
+						result_data += (gap[1] - gap[0]);
+					else
+						break;
+			// for the spawn egg data values gaps
+			else if (result_id == 383)
+				for (short[] gap : spawn_egg_data_gaps)
+					if (result_data > gap[0])
+						result_data += (gap[1] - gap[0]);
+					else
+						break;
+		}
+		String result = String.valueOf(result_id);
+		if (result_data > 0)
+			result += ":" + result_data;
+		return result;
+	}
+
 	public static Integer[] getItemIdAndData(String[] item_name) {
 		Integer result_id = null, result_data = null, result_i = null;
 		for (int id = 0; id < item_IDs.length; id++)
@@ -601,6 +659,7 @@ public class myPluginWiki {
 	}
 
 	public static String getItemName(int id, int data, boolean give_data_suffix) {
+		// 24:1
 		// we need to adjust the query I.D.s based on the gaps in I.D.s
 		// for the potion data values gaps
 		if (id == 373)
@@ -627,7 +686,7 @@ public class myPluginWiki {
 			item = item_IDs[id][data + 1][0];
 		} catch (NumberFormatException exception) {
 			try {
-				item = item_IDs[id][data % 4][0];
+				item = item_IDs[id][data % 4 + 1][0];
 			} catch (NumberFormatException exception2) {
 				item = item_IDs[id][0][0];
 			}

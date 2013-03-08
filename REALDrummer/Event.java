@@ -25,7 +25,7 @@ public class Event {
 	public boolean rolled_back;
 
 	public Event(String cause, String action, Block object, Boolean in_Creative_Mode) {
-		objects = new String[] { myPluginWiki.getItemName(object.getTypeId(), object.getData(), true) };
+		objects = new String[] { Wiki.getItemName(object.getTypeId(), object.getData(), true) };
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -34,9 +34,9 @@ public class Event {
 		// try getting the item name with the I.D. and data provided
 		if (object instanceof Villager)
 			// villager = 120
-			objects[0] = myPluginWiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true);
+			objects[0] = Wiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true);
 		else
-			objects[0] = myPluginWiki.getEntityName(object.getType().getTypeId(), (byte) -1, true);
+			objects[0] = Wiki.getEntityName(object.getType().getTypeId(), (byte) -1, true);
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -44,7 +44,7 @@ public class Event {
 		objects = new String[items.length];
 		// derive the names of the items
 		for (int i = 0; i < items.length; i++) {
-			objects[i] = myPluginWiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true);
+			objects[i] = Wiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true);
 			if (items[i].getAmount() == 1)
 				objects[i] = myGuardDog.singularizeItemName(objects[i]);
 		}

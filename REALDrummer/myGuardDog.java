@@ -61,7 +61,7 @@ public class myGuardDog extends JavaPlugin implements Listener {
 					"one ", "1 " }, wool_dye_colors = { "black", "red", "green", "brown", "blue", "purple", "cyan", "light gray", "gray", "pink", "lime", "yellow",
 					"light blue", "magenta", "orange", "white" };
 	public static File logs_folder, chrono_logs_folder, position_logs_folder, cause_logs_folder;
-	public static boolean roll_back_in_progress = false, save_in_progress = false, hard_save = false;
+	public static boolean roll_back_in_progress = false, save_in_progress = false;
 	// player_to_inform_of_[...]: keys=player names and values=admin name or "console" who performed the command
 	private static HashMap<String, GameMode> offline_player_gamemodes = new HashMap<String, GameMode>(), gamemodes_to_change = new HashMap<String, GameMode>();
 	private static HashMap<String, String> players_to_inform_of_halting = new HashMap<String, String>(), players_to_inform_of_muting = new HashMap<String, String>();
@@ -91,6 +91,8 @@ public class myGuardDog extends JavaPlugin implements Listener {
 		chrono_logs_folder = new File(logs_folder, "/chronologically");
 		position_logs_folder = new File(logs_folder, "/by position");
 		cause_logs_folder = new File(logs_folder, "/by cause");
+		// TODO TEMP
+		Wiki.getItemName(0, -1, true);
 		// done enabling
 		String enable_message = enable_messages[(int) (Math.random() * enable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + enable_message);
@@ -101,8 +103,7 @@ public class myGuardDog extends JavaPlugin implements Listener {
 
 	public void onDisable() {
 		// save the server data
-		hard_save = true;
-		new TimedMethod(console, "save the logs", true, null).run();
+		new TimedMethod(console, "hard save", true, null).run();
 		// done disabling
 		String disable_message = disable_messages[(int) (Math.random() * disable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + disable_message);
