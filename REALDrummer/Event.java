@@ -25,7 +25,7 @@ public class Event {
 	public boolean rolled_back;
 
 	public Event(String cause, String action, Block object, Boolean in_Creative_Mode) {
-		objects = new String[] { Wiki.getItemName(object.getTypeId(), object.getData(), true) };
+		objects = new String[] { Wiki.getItemName(object.getTypeId(), object.getData(), true, true) };
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -34,9 +34,9 @@ public class Event {
 		// try getting the item name with the I.D. and data provided
 		if (object instanceof Villager)
 			// villager = 120
-			objects[0] = Wiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true);
+			objects[0] = Wiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true, true);
 		else
-			objects[0] = Wiki.getEntityName(object.getType().getTypeId(), (byte) -1, true);
+			objects[0] = Wiki.getEntityName(object.getType().getTypeId(), (byte) -1, true, true);
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -44,9 +44,8 @@ public class Event {
 		objects = new String[items.length];
 		// derive the names of the items
 		for (int i = 0; i < items.length; i++) {
-			objects[i] = Wiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true);
-			if (items[i].getAmount() == 1)
-				objects[i] = myGuardDog.singularizeItemName(objects[i]);
+			// if items[i].getAmount == 1, we should get the singular item name
+			objects[i] = Wiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true, items[i].getAmount() == 1);
 		}
 		initializeOtherVariables(cause, action, location, in_Creative_Mode);
 	}
@@ -94,47 +93,30 @@ public class Event {
 			formatted_action = "dyed";
 			formatted_object = objects[0] + action.substring(4);
 		}
-		save_line = save_line + ", " + cause + " " + formatted_action;
+		save_line += ", " + cause + " " + formatted_action;
 		if (objects != null) {
-			// start with formatted_object, which is objects[0] potentially modified for "dyed" instances
-			try {
-				Integer.parseInt(formatted_object);
-				save_line = save_line + " something with the I.D. " + formatted_object;
-			} catch (NumberFormatException exception) {
-				if (!action.equals("killed") && !action.equals("shot") && !action.equals("hit") && !action.equals("grew") && !formatted_action.equals("dyed"))
-					save_line = save_line + " " + myGuardDog.singularizeItemName(formatted_object);
-				else
-					save_line = save_line + " " + formatted_object;
-			}
+			save_line += " " + formatted_object;
 			// then do the rest of the objects if there are any others
 			if (objects.length > 1)
 				for (int i = 1; i < objects.length; i++) {
 					if (objects.length == 2)
-						save_line = save_line + " and ";
-					try {
-						Integer.parseInt(objects[i]);
-						save_line = save_line + " something with the I.D. " + objects[i];
-					} catch (NumberFormatException exception) {
-						if (!action.equals("killed") && !action.equals("shot") && !action.equals("hit") && !action.equals("grew") && !formatted_action.equals("dyed"))
-							save_line = save_line + " " + myGuardDog.singularizeItemName(objects[i]);
-						else
-							save_line = save_line + " " + objects[i];
-					}
+						save_line += " and ";
+					save_line += " " + objects[i];
 					if (objects.length >= 3)
 						if (i == objects.length - 1)
-							save_line = save_line + ", and ";
+							save_line += ", and ";
 						else
-							save_line = save_line + ", ";
+							save_line += ", ";
 				}
 		}
-		save_line = save_line + " at (" + x + ", " + y + ", " + z + ") in \"" + world.getName();
+		save_line += " at (" + x + ", " + y + ", " + z + ") in \"" + world.getName();
 		if (in_Creative_Mode == null)
-			save_line = save_line + ".\"";
+			save_line += ".\"";
 		else if (in_Creative_Mode)
-			save_line = save_line + "\" while in Creative Mode.";
+			save_line += "\" while in Creative Mode.";
 		else
-			save_line = save_line + "\" while in Survival Mode.";
-		myGuardDog.console.sendMessage(save_line);
+			save_line += "\" while in Survival Mode.";
+		// myGuardDog.console.sendMessage(save_line);
 	}
 
 	public Event(String my_save_line) {
@@ -210,8 +192,6 @@ public class Event {
 				objects = new String[] { temp[0], temp[1] + " and " + temp[2] };
 		} else if (object_list.startsWith("something with the I.D. "))
 			objects[0] = object_list.substring(24);
-		else if (!action.equals("killed") && !action.equals("hurt") && !action.equals("hit") && !action.equals("grew"))
-			objects[0] = myGuardDog.pluralizeItemName(object_list);
 		// exclude events with no objects
 		else if (!object_list.equals(""))
 			objects[0] = object_list;
@@ -262,16 +242,14 @@ public class Event {
 			rolled_back = true;
 		else
 			rolled_back = false;
-		/**/
-		String message = ChatColor.WHITE + "date: " + getDate('/') + "; time: " + getTime(':') + "; cause: " + cause + "; action: " + action + "; objects: ";
-		if (objects != null)
-			for (String object : objects)
-				message += object + ", ";
-		message +=
-				"; x=" + x + "; y=" + y + "; z=" + z + "; world: " + world.getWorldFolder().getName() + "; in Creative Mode=" + in_Creative_Mode + "; rolled back="
-						+ rolled_back;
-		myGuardDog.console.sendMessage(message);
-		/**/
+		// String message = ChatColor.WHITE + "date: " + getDate('/') + "; time: " + getTime(':') + "; cause: " + cause + "; action: " + action + "; objects: ";
+		// if (objects != null)
+		// for (String object : objects)
+		// message += object + ", ";
+		// message +=
+		// "; x=" + x + "; y=" + y + "; z=" + z + "; world: " + world.getWorldFolder().getName() + "; in Creative Mode=" + in_Creative_Mode + "; rolled back="
+		// + rolled_back;
+		// myGuardDog.console.sendMessage(message);
 	}
 
 	// time and date constructors
@@ -303,7 +281,7 @@ public class Event {
 			if (!rolled_back)
 				save_line = save_line.substring(save_line.length() - 14);
 			else
-				save_line = save_line + " [rolled back]";
+				save_line += " [rolled back]";
 		}
 	}
 }

@@ -34,6 +34,8 @@ import org.bukkit.event.block.LeavesDecayEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -57,7 +59,7 @@ public class myGuardDog extends JavaPlugin implements Listener {
 			"Anti-Griefing shields at full power, Captain. Awaiting orders...", "Hasta la vista, griefers." }, disable_messages = { "Until we meet again, pathetic griefers.",
 			"Griefers have been successfully pwnd.", "Off duty? There is no such thing.", "Though I am disabled, I do not sleep. Your server is under my protection." },
 			yeses = { "yes", "yeah", "yep", "ja", "sure", "why not", "okay", "do it", "fine", "whatever", "very well", "accept", "tpa", "cool", "hell yeah", "hells yeah",
-					"hells yes", "come" }, nos = { "no", "nah", "nope", "no thanks", "no don't", "shut up", "ignore", "it's not", "its not", "creeper", "unsafe", "wait",
+					"hells yes", "come" }, nos = { "no ", "nah", "nope", "no thanks", "no don't", "shut up", "ignore", "it's not", "its not", "creeper", "unsafe", "wait",
 					"one ", "1 " }, wool_dye_colors = { "black", "red", "green", "brown", "blue", "purple", "cyan", "light gray", "gray", "pink", "lime", "yellow",
 					"light blue", "magenta", "orange", "white" };
 	public static File logs_folder, chrono_logs_folder, position_logs_folder, cause_logs_folder;
@@ -91,8 +93,6 @@ public class myGuardDog extends JavaPlugin implements Listener {
 		chrono_logs_folder = new File(logs_folder, "/chronologically");
 		position_logs_folder = new File(logs_folder, "/by position");
 		cause_logs_folder = new File(logs_folder, "/by cause");
-		// TODO TEMP
-		Wiki.getItemName(0, -1, true);
 		// done enabling
 		String enable_message = enable_messages[(int) (Math.random() * enable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + enable_message);
@@ -277,85 +277,6 @@ public class myGuardDog extends JavaPlugin implements Listener {
 			index++;
 		}
 		return to_return;
-	}
-
-	public static final String singularizeItemName(String plural) {
-		String data_suffix = "";
-		if (plural.endsWith("\\)")) {
-			data_suffix = plural.substring(plural.indexOf("(") - 1);
-			plural = plural.substring(0, plural.indexOf("(") - 1);
-		}
-		// for "cacti"
-		if (plural.equals("cacti"))
-			return "a cactus" + data_suffix;
-		else if (plural.equals("leaves"))
-			return "some leaves" + data_suffix;
-		// for "es" pluralizations
-		else if (plural.equals("dead bushes") || plural.equals("jukeboxes") || plural.equals("compasses") || plural.endsWith("potatoes") || plural.endsWith("torches"))
-			if (!plural.startsWith("a") && !plural.startsWith("e") && !plural.startsWith("i") && !plural.startsWith("o") && !plural.startsWith("u"))
-				return "a " + plural.substring(0, plural.length() - 2) + data_suffix;
-			else
-				return "an " + plural.substring(0, plural.length() - 2) + data_suffix;
-		// for things that need to stay plural because they come in sets
-		else if (plural.equals("iron bars") || plural.equals("Nether warts") || plural.equals("shears") || plural.endsWith("pants") || plural.endsWith("boots")
-				|| plural.endsWith("seeds") || plural.endsWith("stairs") || plural.endsWith("bricks") || plural.endsWith("leggings"))
-			return "some " + plural + data_suffix;
-		// for things where the pluralization is not just at the end, e.g. "EYES of Ender"-->"AN EYE of Ender" or "CARROTS on STICKS"-->"A CARROT on A STICK"
-		else if (plural.split(" ").length >= 3 && plural.split(" ")[0].endsWith("s") && !plural.split(" ")[0].equals("lapis")) {
-			String complex_singular = plural.substring(0, plural.indexOf("s "));
-			if (!complex_singular.toLowerCase().startsWith("a") && !complex_singular.toLowerCase().startsWith("e") && !complex_singular.toLowerCase().startsWith("i")
-					&& !complex_singular.toLowerCase().startsWith("o") && !complex_singular.toLowerCase().startsWith("u"))
-				complex_singular = "a " + complex_singular;
-			else
-				complex_singular = "an " + complex_singular;
-			complex_singular = complex_singular + plural.substring(plural.indexOf(" "), plural.lastIndexOf(" ") + 1);
-			String temp = plural.split(" ")[plural.split(" ").length - 1];
-			if (temp.endsWith("s"))
-				temp = "a " + temp.substring(0, temp.length() - 1);
-			return complex_singular + temp + data_suffix;
-		} else if (plural.endsWith("s") && !plural.endsWith("ss"))
-			if (!plural.toLowerCase().startsWith("a") && !plural.toLowerCase().startsWith("e") && !plural.toLowerCase().startsWith("i")
-					&& !plural.toLowerCase().startsWith("o") && !plural.toLowerCase().startsWith("u") && !plural.startsWith("\"11"))
-				return "a " + plural.substring(0, plural.length() - 1) + data_suffix;
-			else
-				return "an " + plural.substring(0, plural.length() - 1) + data_suffix;
-		else
-			return "some " + plural + data_suffix;
-	}
-
-	public static final String pluralizeItemName(String singular) {
-		String data_suffix = "";
-		if (singular.endsWith("\\)")) {
-			data_suffix = singular.substring(singular.indexOf("(") - 1);
-			singular = singular.substring(0, singular.indexOf("(") - 1);
-		}
-		// remove the article at the beginning
-		if (singular.startsWith("a "))
-			singular = singular.substring(2);
-		else if (singular.startsWith("an "))
-			singular = singular.substring(3);
-		else if (singular.startsWith("some "))
-			return singular.substring(5);
-		// for "cacti"
-		if (singular.equals("cactus"))
-			return "cacti" + data_suffix;
-		// for "es" pluralizations
-		else if (singular.equals("dead bush") || singular.equals("jukebox") || singular.equals("compass") || singular.endsWith("potato") || singular.endsWith("torch"))
-			return singular + "es" + data_suffix;
-		// for things that needed to stay singular because they came in sets
-		else if (singular.endsWith("s"))
-			return singular + data_suffix;
-		// for things where the singularization is not just at the end
-		else if (singular.split(" ").length >= 3 && (singular.contains(" of ") || singular.contains(" o' ") || singular.contains(" on ") || singular.contains(" and "))
-				|| singular.contains(" by ")) {
-			singular = singular.split(" ")[0] + "s" + singular.substring(singular.split(" ")[0].length());
-			if (singular.contains(" a ") || singular.contains(" an "))
-				singular = singular + "s";
-			return singular.replaceAll(" a ", " ").replaceAll(" an ", " ").replaceAll(" the ", " ") + data_suffix;
-		} else if (!singular.endsWith("ss"))
-			return singular + "s" + data_suffix;
-		else
-			return singular + data_suffix;
 	}
 
 	public static int translateStringtoTimeInms(String written) {
@@ -574,6 +495,24 @@ public class myGuardDog extends JavaPlugin implements Listener {
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
+	public void logItemFrameAndPaintingBreaking(HangingBreakByEntityEvent event) {
+		// TODO: make it also log other causes of HangingBreakEvents when they can be better logged
+		String cause;
+		Boolean in_Creative_Mode = null;
+		if (event.getRemover() instanceof Player) {
+			cause = ((Player) event.getRemover()).getName();
+			in_Creative_Mode = ((Player) event.getRemover()).getGameMode().equals(GameMode.CREATIVE);
+		} else
+			cause = Wiki.getEntityName(event.getRemover(), true, true);
+		events.add(new Event(cause, "took down", event.getEntity(), in_Creative_Mode));
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
+	public void logItemFrameAndPaintingPlacing(HangingPlaceEvent event) {
+		events.add(new Event(event.getPlayer().getName(), "hung", event.getEntity(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logWaterAndLavaSpreadAndBlocksBrokenByIt(BlockSpreadEvent event) {
 		// TODO
 	}
@@ -764,24 +703,20 @@ public class myGuardDog extends JavaPlugin implements Listener {
 				inspect(event.getPlayer(), position);
 			return;
 		}
-		String action = null, object = null;
+		String action = null;
 		Block block = event.getClickedBlock();
 		// switches: lever=69, stone pressure plate=70, wooden pressure plate=72, stone button=77, wooden button = 143
 		// portals: wooden door=64, iron door=71, trapdoor=96, fence gate=107
 		// this logs stepping on pressure plates
-		if (event.getAction().equals(Action.PHYSICAL) && (block.getTypeId() == 70 || block.getTypeId() == 72)) {
+		if (event.getAction().equals(Action.PHYSICAL) && (block.getTypeId() == 70 || block.getTypeId() == 72))
 			action = "stepped on";
-			object = "pressure plates";
-		} else if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK))
+		else if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK))
 			// these two log lever flipping and button pressing
-			if (block.getTypeId() == 69) {
+			if (block.getTypeId() == 69)
 				action = "flipped";
-				object = "levers";
-			} else if (block.getTypeId() == 77 || event.getClickedBlock().getTypeId() == 143) {
+			else if (block.getTypeId() == 77 || event.getClickedBlock().getTypeId() == 143)
 				action = "pressed";
-				object = "buttons";
-				// this logs door and fence gate opening and closing
-			} else if (block.getTypeId() == 64) {
+			else if (block.getTypeId() == 64) {
 				// if it's the top block of a door, data=8 or 9; if you're closing a door, data=4-7; if you're opening a door, data=0-3
 				if (block.getData() >= 8)
 					block = new Location(block.getLocation().getWorld(), block.getLocation().getX(), block.getLocation().getY() - 1, block.getLocation().getZ()).getBlock();
@@ -789,22 +724,18 @@ public class myGuardDog extends JavaPlugin implements Listener {
 					action = "opened";
 				else
 					action = "closed";
-				object = "wooden doors";
-			} else if (block.getTypeId() == 96) {
+			} else if (block.getTypeId() == 96)
 				// if you're closing a trapdoor, data=4-7 or 12-15; if you're opening a trapdoor, data=0-3 or 8-11
 				if (block.getData() < 4 || (block.getData() >= 8 && block.getData() <= 11))
 					action = "opened";
 				else
 					action = "closed";
-				object = "trapdoors";
-			} else if (block.getTypeId() == 107) {
+			else if (block.getTypeId() == 107)
 				// if you're closing a fence gate, data=4-7; if you're opening a fence gate, data=0-3
 				if (block.getData() < 4)
 					action = "opened";
 				else
 					action = "closed";
-				object = "fence gates";
-			}
 			// bonemeal=351:15, saplings=6, wheat=59, carrots=141, potatoes=142, brown mushroom=39, red mushroom=40, grass=2, cocoa beans=127, melon stems=105,
 			// pumpkin stems=104, Nether warts=115
 			// this logs bonemealing of plants
@@ -814,8 +745,8 @@ public class myGuardDog extends JavaPlugin implements Listener {
 							|| block.getTypeId() == 40 || block.getTypeId() == 2 || block.getTypeId() == 127 || block.getTypeId() == 105 || block.getTypeId() == 104 || block
 							.getTypeId() == 115))
 				events.add(new Event(event.getPlayer().getName(), "bonemealed", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-		if (action != null && object != null)
-			events.add(new Event(event.getPlayer().getName(), action, object, block.getLocation(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		if (action != null)
+			events.add(new Event(event.getPlayer().getName(), action, block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -1087,8 +1018,8 @@ public class myGuardDog extends JavaPlugin implements Listener {
 		// we can determine how many events that occurred at that location need to be skipped with 4*times_clicked
 		int other_relevant_events = 0;
 		ArrayList<Event> display_events = new ArrayList<Event>();
-		for (Event event : events)
-			if (event.x == position.getBlockX() && event.y == position.getBlockY() && event.z == position.getBlockZ()) {
+		for (int i = events.size() - 1; i >= 0; i--)
+			if (events.get(i).x == position.getBlockX() && events.get(i).y == position.getBlockY() && events.get(i).z == position.getBlockZ()) {
 				if (other_relevant_events < 4 * times_clicked)
 					other_relevant_events++;
 				// if we already have five events that need displaying and we find another after it, we can end the search here and tell the inspector that they
@@ -1101,7 +1032,7 @@ public class myGuardDog extends JavaPlugin implements Listener {
 					inspecting_players.put(player.getName(), new Object[] { position, times_clicked + 1 });
 					return;
 				} else
-					display_events.add(event);
+					display_events.add(events.get(i));
 			}
 		File log_file =
 				new File(position_logs_folder, "(" + position.getBlockX() + ", " + position.getBlockZ() + ") " + position.getWorld().getWorldFolder().getName() + ".txt");
