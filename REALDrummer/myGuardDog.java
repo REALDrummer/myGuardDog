@@ -1,5 +1,7 @@
 package REALDrummer;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -7,6 +9,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.UUID;
+
+import javax.swing.Timer;
 
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -50,7 +54,7 @@ import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class myGuardDog extends JavaPlugin implements Listener {
+public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public static Plugin mGD;
 	public static Server server;
 	public static ConsoleCommandSender console;
@@ -73,6 +77,7 @@ public class myGuardDog extends JavaPlugin implements Listener {
 	private static HashMap<String, Object[]> inspecting_players = new HashMap<String, Object[]>();
 	public static HashMap<UUID, String> primed_TNT_causes = new HashMap<UUID, String>();
 	private static ArrayList<String> confirmed_gamemode_changers = new ArrayList<String>(), halted_players = new ArrayList<String>(), muted_players = new ArrayList<String>();
+	private static Timer autosave_timer;
 
 	// TODO: make an int[] of all the item I.D.s of items that break if the block attached to them breaks
 	// TODO: make /busy top (#) show the busiest people on the server by comparing the sizes of the cause log files
@@ -93,6 +98,9 @@ public class myGuardDog extends JavaPlugin implements Listener {
 		chrono_logs_folder = new File(logs_folder, "/chronologically");
 		position_logs_folder = new File(logs_folder, "/by position");
 		cause_logs_folder = new File(logs_folder, "/by cause");
+		// 5 minutes = 300,000ms
+		autosave_timer = new Timer(300000, this);
+		autosave_timer.start();
 		// done enabling
 		String enable_message = enable_messages[(int) (Math.random() * enable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + enable_message);
@@ -102,6 +110,7 @@ public class myGuardDog extends JavaPlugin implements Listener {
 	}
 
 	public void onDisable() {
+		autosave_timer.stop();
 		// save the server data
 		new TimedMethod(console, "hard save", true, null).run();
 		// done disabling
@@ -343,15 +352,24 @@ public class myGuardDog extends JavaPlugin implements Listener {
 		// get the values (e.g. "2 days" or "55.7 seconds")
 		ArrayList<String> values = new ArrayList<String>();
 		if (time > 86400000) {
-			values.add((int) (time / 86400000) + " days");
+			if ((int) (time / 86400000) > 1)
+				values.add((int) (time / 86400000) + " days");
+			else
+				values.add("1 day");
 			time = time % 86400000;
 		}
 		if (time > 3600000) {
-			values.add((int) (time / 3600000) + " hours");
+			if ((int) (time / 3600000) > 1)
+				values.add((int) (time / 3600000) + " hours");
+			else
+				values.add("1 hour");
 			time = time % 3600000;
 		}
 		if (time > 60000) {
-			values.add((int) (time / 60000) + " minutes");
+			if ((int) (time / 60000) > 1)
+				values.add((int) (time / 60000) + " minutes");
+			else
+				values.add("1 minute");
 			time = time % 60000;
 		}
 		// add a seconds value if there is still time remaining or if there are no other values
@@ -360,8 +378,10 @@ public class myGuardDog extends JavaPlugin implements Listener {
 			if ((time / 1000.0) != (time / 1000) && !round_seconds)
 				values.add((time / 1000.0) + " seconds");
 			// if seconds are a whole number, just write it as a whole number (integer)
-			else
+			else if (Math.round(time / 1000) > 1)
 				values.add(Math.round(time / 1000) + " seconds");
+			else
+				values.add("1 second");
 		// if there are two or more values, add an "and"
 		if (values.size() >= 2)
 			values.add(values.size() - 1, "and");
@@ -383,6 +403,11 @@ public class myGuardDog extends JavaPlugin implements Listener {
 	}
 
 	// listeners
+	@Override
+	public void actionPerformed(ActionEvent event) {
+		new TimedMethod(console, "save the logs", true, null).run();
+	}
+
 	@EventHandler
 	public void recordThePlayersGameModeBeforeTheyLogOff(PlayerQuitEvent event) {
 		offline_player_gamemodes.put(event.getPlayer().getName(), event.getPlayer().getGameMode());
@@ -1087,4 +1112,5 @@ public class myGuardDog extends JavaPlugin implements Listener {
 					+ ") yet!");
 		inspecting_players.put(player.getName(), new Object[] { position, 0 });
 	}
+
 }
