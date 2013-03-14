@@ -190,9 +190,7 @@ public class Event {
 				objects = new String[] { temp[0] + " and " + temp[1], temp[2] };
 			else
 				objects = new String[] { temp[0], temp[1] + " and " + temp[2] };
-		} else if (object_list.startsWith("something with the I.D. "))
-			objects[0] = object_list.substring(24);
-		// exclude events with no objects
+		}// exclude events with no objects
 		else if (!object_list.equals(""))
 			objects[0] = object_list;
 		// special action: ...dyed a [color] sheep [new color]...
@@ -242,14 +240,14 @@ public class Event {
 			rolled_back = true;
 		else
 			rolled_back = false;
-		// String message = ChatColor.WHITE + "date: " + getDate('/') + "; time: " + getTime(':') + "; cause: " + cause + "; action: " + action + "; objects: ";
-		// if (objects != null)
-		// for (String object : objects)
-		// message += object + ", ";
-		// message +=
-		// "; x=" + x + "; y=" + y + "; z=" + z + "; world: " + world.getWorldFolder().getName() + "; in Creative Mode=" + in_Creative_Mode + "; rolled back="
-		// + rolled_back;
-		// myGuardDog.console.sendMessage(message);
+		String message = ChatColor.WHITE + "date: " + getDate('/') + "; time: " + getTime(':') + "; cause: " + cause + "; action: " + action + "; objects: ";
+		if (objects != null)
+			for (String object : objects)
+				message += "\"" + object + "\" ";
+		message +=
+				"; x=" + x + "; y=" + y + "; z=" + z + "; world: " + world.getWorldFolder().getName() + "; in Creative Mode=" + in_Creative_Mode + "; rolled back="
+						+ rolled_back;
+		myGuardDog.console.sendMessage(message);
 	}
 
 	// time and date constructors

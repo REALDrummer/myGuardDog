@@ -644,7 +644,7 @@ public class TimedMethod implements Runnable {
 				}
 		} else if (event.action.equals("broke") || event.action.equals("burned") || event.action.equals("creeper'd") || event.action.equals("T.N.T.'d")
 				|| event.action.equals("blew up")) {
-			Integer id = Wiki.getItemIdAndData(event.objects[0].split(" "))[0];
+			Integer id = Wiki.getItemIdAndData(event.objects[0])[0];
 			if (id != null)
 				event.location.getBlock().setTypeId(id);
 			else {

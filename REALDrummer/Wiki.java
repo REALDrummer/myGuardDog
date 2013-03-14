@@ -5,6 +5,7 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Sheep;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
 
@@ -589,21 +590,51 @@ public class Wiki {
 									"lightninged struck explosive green penis monsters" } },
 					{ { "skeletons", "a skeleton", "skeles", "skeleton archers" },
 							{ "Wither skeletons", "a Wither skeleton", "Wither skeles", "Wither skeletons", "swordsman skeletons", "swordsman skeles" } },
-					{ { "spiders", "a spider", "giant spiders" } }, { { "giants", "a giant", "giant zombies" } }, { { "zombies", "a zombie" } },
+					{ { "spiders", "a spider", "giant spiders" } },
+					{ { "giants", "a giant", "giant zombies" } },
+					{ { "zombies", "a zombie" } },
 					{ { "slimes", "a slime", "slime cubes", "living slime" } },
 					{ { "Ghasts", "a Ghast", "giant floating jellyfish", "giant flying jellyfish", "giant floating squids", "giant flying squids" } },
-					{ { "zombie pigmen", "a zombie pigman", "zombie pigman", "pigman zombies" } }, { { "Endermen", "Enderman" } },
+					{ { "zombie pigmen", "a zombie pigman", "zombie pigman", "pigman zombies" } },
+					{ { "Endermen", "Enderman" } },
 					{ { "cave spiders", "a cave spider", "small spiders", "poisonous spiders", "venomous spiders" } },
 					{ { "silverfish", "a silverfish", "bugs", "stronghold silverfish", "stronghold bugs" } },
 					{ { "Blazes", "a Blaze", "Nether dungeon guards", "Nether stronghold guards", "Nether dungeon monsters", "Nether stronghold monsters" } },
 					{ { "Magma Cubes", "a Magma Cube", "lava cubes", "Nether slimes", "living magma", "living lava" } },
-					{ { "The Ender Dragon", "the big black scary dragon" } }, { { "The Wither", "The Wither", "The Wither boss" } }, { { "bats", "a bat" } },
-					{ { "witches", "a witch", "wicked witches" } }, { { "pigs", "a pig", "piggies" } }, { { "sheep", "a sheep", "lambs" } }, { { "cows", "a cow" } },
-					{ { "chickens", "a chicken", "chicks" } }, { { "squid", "a squid", "squids", "octopi", "octopuses" } },
-					{ { "wolves", "a wolf", "dogs", "wolfs", "hounds" } }, { { "mooshrooms", "a mooshroom", "mooshroom cows" } },
-					{ { "snow golems", "a snow golem", "living snowmen" } }, { { "ocelots", "an ocelot", "jungle cats" } },
+					{ { "The Ender Dragon", "the big black scary dragon" } },
+					{ { "The Wither", "The Wither", "The Wither boss" } },
+					{ { "bats", "a bat" } },
+					{ { "witches", "a witch", "wicked witches" } },
+					{ { "pigs", "a pig", "piggies", "piglets" } },
+					{ { "sheep", "a sheep", "lambs" }, { "white sheep", "a white sheep", "white lambs" }, { "orange sheep", "an orange sheep", "orange lambs" },
+							{ "magenta sheep", "a magenta sheep", "magenta lambs" }, { "light blue sheep", "a light blue sheep", "light blue lambs" },
+							{ "yellow sheep", "a yellow sheep", "yellow lambs" }, { "lime green sheep", "a lime green sheep", "lime green lambs" },
+							{ "pink sheep", "a pink sheep", "pink lambs" },
+							{ "gray sheep", "a gray sheep", "dark gray sheep", "dark grey sheep", "dark gray lambs", "dark grey lambs" },
+							{ "light gray sheep", "a light gray sheep", "light gray lambs" }, { "cyan sheep", "a cyan sheep", "cyan lambs" },
+							{ "purple sheep", "a purple sheep", "purple lambs" }, { "blue sheep", "a blue sheep", "dark blue sheep", "dark blue lambs" },
+							{ "brown sheep", "a brown sheep", "brown lambs" },
+							{ "cactus green sheep", "a cactus green sheep", "dark green sheep", "cactus green lambs", "dark green lambs" },
+							{ "red sheep", "a red sheep", "red lambs" }, { "black sheep", "a black sheep", "black lambs", "nun sheep" } },
+					{ { "cows", "a cow" } },
+					{ { "chickens", "a chicken", "chicks" } },
+					{ { "squid", "a squid", "squids", "octopi", "octopuses" } },
+					{ { "wolves", "a wolf", "dogs", "wolfs", "hounds" } },
+					{ { "mooshrooms", "a mooshroom", "mooshroom cows" } },
+					{ { "snow golems", "a snow golem", "living snowmen" } },
+					{ { "ocelots", "an ocelot", "jungle cats" } },
 					{ { "iron golems", "an iron golem", "N.P.C. village guards", "NPC village guards", "Testificates village guards" } },
-					{ { "villagers", "a villager", "N.P.C.s", "NPCs", "Testificates" } }, { { "Ender crystals", "an Ender crystal", "Ender Dragon shield generators" } } };
+					{
+							{ "villagers", "a villager", "N.P.C.s", "NPCs", "Testificates" },
+							{ "farmer villagers", "a farmer villager", "farmers villagers", "farmers N.P.C.s", "farmers NPCs", "farmers Testificates" },
+							{ "librarian villagers", "a librarian villager", "librarians villagers", "librarians N.P.C.s", "librarians NPCs", "librarians Testificates" },
+							{ "priest villagers", "a priest villager", "Minecraft priests villagers", "Minecraft priests N.P.C.s", "Minecraft priests NPCs",
+									"Minecraft priests Testificates" },
+							{ "butcher villagers", "a butcher villager", "butchers villagers", "butcher N.P.C.s", "butcher NPCs", "butcher testificates" },
+							{ "blacksmith villagers", "a blacksmith villager", "blacksmiths villagers", "blacksmiths N.P.C.s", "blacksmiths NPCs", "blacksmiths Testificates" },
+							{ "zombie villagers", "a zombie villager", "zombies villagers", "zombies N.P.C.s", "zombies NPCs", "zombies Testificates", "zombified villagers",
+									"zombified N.P.C.s", "zombified NPCs", "zombified Testificates" } },
+					{ { "Ender crystals", "an Ender crystal", "Ender Dragon shield generators" } } };
 	// there gap arrays are here to compensate for the gaps in I.D.s; for example, from the block I.D.s to the item I.D.s (starting at item #159 in this list
 	// since 158 is the last block I.D.), there is a 98-number gap.
 	// there are two numbers in each item in this list: the item I.D. of the last item before the gap and the item I.D. of the first item after the gap
@@ -612,7 +643,7 @@ public class Wiki {
 			{ 0, 16 }, { 16, 32 }, { 32, 64 }, { 64, 8193 }, { 8206, 8225 }, { 8229, 8233 }, { 8236, 8257 }, { 8266, 8270 }, { 8270, 16385 }, { 16398, 16417 },
 			{ 16421, 16425 }, { 16428, 16449 }, { 16458, 16462 } }, spawn_egg_data_gaps = { { -1, 50 }, { 66, 90 }, { 98, 120 } };
 
-	// TODO: test potion data and spawn egg data gaps
+	// TODO: modify getEntityIdAndData to account for "something with the I.D." and data suffix instances
 
 	// working methods
 	public static Integer[] getItemIdAndData(String[] item_name) {
@@ -624,7 +655,10 @@ public class Wiki {
 						for (int i = 0; i < item_IDs[id][data].length; i++) {
 							boolean contains_query = true;
 							for (String word : item_name)
-								if (!item_IDs[id][data][i].toLowerCase().contains(word.toLowerCase())) {
+								// if word starts and ends with parentheses, it's a data suffix, so ignore it in the search; also ignore articles
+								if (!(word.startsWith("(") && word.endsWith(")")) && !word.equalsIgnoreCase("a") && !word.equalsIgnoreCase("an")
+										&& !word.equalsIgnoreCase("the") && !word.equalsIgnoreCase("some")
+										&& !item_IDs[id][data][i].toLowerCase().contains(word.toLowerCase())) {
 									contains_query = false;
 									break;
 								}
@@ -640,31 +674,87 @@ public class Wiki {
 								result_i = i;
 							}
 						}
+		// if we returned no results, it's possible that the object was "something with the I.D. [id](":"[data])"
 		if (result_id == null)
-			return null;
-		// subtract 1 from the data to get the real data (remember: [0] is the general name and [1] is data = 0)
-		result_data -= 1;
-		// now we need to adjust the final result based on the gaps in I.D.s
-		// for the I.D. gaps
-		for (short[] gap : item_gaps)
-			if (result_id > gap[0])
-				result_id += (gap[1] - gap[0] - 1);
+			if (item_name[0].equalsIgnoreCase("something") && item_name[1].equalsIgnoreCase("with") && item_name[2].equalsIgnoreCase("the")
+					&& item_name[3].equalsIgnoreCase("I.D."))
+				try {
+					// try reading it as "something with the I.D. [id]"
+					result_id = Integer.parseInt(item_name[4]);
+					result_data = 0;
+					return new Integer[] { result_id, result_data };
+				} catch (NumberFormatException exception) {
+					try {
+						// try reading it as "something with the I.D. [id]:[data]"
+						String[] id_and_data = item_name[4].split(":");
+						if (id_and_data.length != 2) {
+							myGuardDog.console.sendMessage(ChatColor.DARK_RED + "Aww! Something went wrong! I couldn't get the I.D. and data from this object name.");
+							String item = "";
+							for (String word : item_name)
+								item += word + " ";
+							// the substring() here eliminates the extra space at the end
+							myGuardDog.console.sendMessage(ChatColor.WHITE + "\"" + item.substring(0, item.length() - 1) + "\"");
+							return null;
+						}
+						result_id = Integer.parseInt(id_and_data[0]);
+						result_data = Integer.parseInt(id_and_data[1]);
+						return new Integer[] { result_id, result_data };
+					} catch (NumberFormatException exception2) {
+						myGuardDog.console.sendMessage(ChatColor.DARK_RED + "Darn! Something went wrong! I couldn't get the I.D. and data from this object name.");
+						String item = "";
+						for (String word : item_name)
+							item += word + " ";
+						// the substring() here eliminates the extra space at the end
+						myGuardDog.console.sendMessage(ChatColor.WHITE + "\"" + item.substring(0, item.length() - 1) + "\"");
+						return null;
+					}
+				}
 			else
-				break;
-		// for the potion data values gaps
-		if (result_id == 373)
-			for (short[] gap : potion_data_gaps)
-				if (result_data > gap[0])
-					result_data += (gap[1] - gap[0] - 1);
+				return null;
+		else {
+			// subtract 1 from the data to get the real data (remember: [0] is the general name and [1] is data = 0)
+			result_data -= 1;
+			// now we need to adjust the final result based on the gaps in I.D.s
+			// for the I.D. gaps
+			for (short[] gap : item_gaps)
+				if (result_id > gap[0])
+					result_id += (gap[1] - gap[0] - 1);
 				else
 					break;
-		// for the spawn egg data values gaps
-		else if (result_id == 383)
-			for (short[] gap : spawn_egg_data_gaps)
-				if (result_data > gap[0])
-					result_data += (gap[1] - gap[0] - 1);
-				else
-					break;
+			// if the item name contained a data suffix, read the data suffix to get the real data value
+			if (item_name.length > 1 && item_name[item_name.length - 1].startsWith("(") && item_name[item_name.length - 1].endsWith(")"))
+				try {
+					result_data = Integer.parseInt(item_name[item_name.length - 1].substring(1, item_name[item_name.length - 1].length() - 1));
+				} catch (NumberFormatException exception) {
+					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "Oh, nos! I got an error trying to read the data suffix on this item name!");
+					String item = "";
+					for (String word : item_name)
+						item += word + " ";
+					// the substring() here eliminates the extra space at the end
+					myGuardDog.console.sendMessage(ChatColor.WHITE + "\"" + item.substring(0, item.length() - 1) + "\"");
+					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I read " + ChatColor.WHITE + "\""
+							+ item_name[item_name.length - 1].substring(1, item_name[item_name.length - 1].length() - 1) + "\"" + ChatColor.DARK_RED
+							+ " as the data value in the data suffix.");
+					exception.printStackTrace();
+				}
+			// only adjust the result data if there was no data suffix to get the true data from
+			else {
+				// for the potion data values gaps
+				if (result_id == 373)
+					for (short[] gap : potion_data_gaps)
+						if (result_data > gap[0])
+							result_data += (gap[1] - gap[0] - 1);
+						else
+							break;
+				// for the spawn egg data values gaps
+				else if (result_id == 383)
+					for (short[] gap : spawn_egg_data_gaps)
+						if (result_data > gap[0])
+							result_data += (gap[1] - gap[0] - 1);
+						else
+							break;
+			}
+		}
 		return new Integer[] { result_id, result_data };
 	}
 
@@ -734,7 +824,10 @@ public class Wiki {
 						for (int i = 0; i < entity_IDs[id][data].length; i++) {
 							boolean contains_query = true;
 							for (String word : entity_name)
-								if (!entity_IDs[id][data][i].toLowerCase().contains(word.toLowerCase())) {
+								// if word starts and ends with parentheses, it's a data suffix, so ignore it in the search; also ignore articles
+								if (!(word.startsWith("(") && word.endsWith(")")) && !word.equalsIgnoreCase("a") && !word.equalsIgnoreCase("an")
+										&& !word.equalsIgnoreCase("the") && !word.equalsIgnoreCase("some")
+										&& !entity_IDs[id][data][i].toLowerCase().contains(word.toLowerCase())) {
 									contains_query = false;
 									break;
 								}
@@ -751,16 +844,67 @@ public class Wiki {
 							}
 						}
 		if (result_id == null)
-			return null;
-		// subtract 1 from the data to get the real data (remember: [0] is the general name and [1] is data = 0)
-		result_data -= 1;
-		// now we need to adjust the final result based on the gaps in I.D.s
-		// for the I.D. gaps
-		for (short[] gap : entity_gaps)
-			if (result_id > gap[0])
-				result_id += (gap[1] - gap[0] - 1);
+			if (entity_name[0].equalsIgnoreCase("something") && entity_name[1].equalsIgnoreCase("with") && entity_name[2].equalsIgnoreCase("the")
+					&& entity_name[3].equalsIgnoreCase("I.D."))
+				try {
+					// try reading it as "something with the I.D. [id]"
+					result_id = Integer.parseInt(entity_name[4]);
+					result_data = 0;
+					return new Integer[] { result_id, result_data };
+				} catch (NumberFormatException exception) {
+					try {
+						// try reading it as "something with the I.D. [id]:[data]"
+						String[] id_and_data = entity_name[4].split(":");
+						if (id_and_data.length != 2) {
+							myGuardDog.console.sendMessage(ChatColor.DARK_RED + "Aww! Something went wrong! I couldn't get the I.D. and data from this object name.");
+							String entity = "";
+							for (String word : entity_name)
+								entity += word + " ";
+							// the substring() here eliminates the extra space at the end
+							myGuardDog.console.sendMessage(ChatColor.WHITE + "\"" + entity.substring(0, entity.length() - 1) + "\"");
+							return null;
+						}
+						result_id = Integer.parseInt(id_and_data[0]);
+						result_data = Integer.parseInt(id_and_data[1]);
+						return new Integer[] { result_id, result_data };
+					} catch (NumberFormatException exception2) {
+						myGuardDog.console.sendMessage(ChatColor.DARK_RED + "Darn! Something went wrong! I couldn't get the I.D. and data from this object name.");
+						String entity = "";
+						for (String word : entity_name)
+							entity += word + " ";
+						// the substring() here eliminates the extra space at the end
+						myGuardDog.console.sendMessage(ChatColor.WHITE + "\"" + entity.substring(0, entity.length() - 1) + "\"");
+						return null;
+					}
+				}
 			else
-				break;
+				return null;
+		else {
+			// subtract 1 from the data to get the real data (remember: [0] is the general name and [1] is data = 0)
+			result_data -= 1;
+			// if the entity name contained a data suffix, read the data suffix to get the real data value
+			if (entity_name.length > 1 && entity_name[entity_name.length - 1].startsWith("(") && entity_name[entity_name.length - 1].endsWith(")"))
+				try {
+					result_data = Integer.parseInt(entity_name[entity_name.length - 1].substring(1, entity_name[entity_name.length - 1].length() - 1));
+				} catch (NumberFormatException exception) {
+					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "Oh, nos! I got an error trying to read the data suffix on this item name!");
+					String entity = "";
+					for (String word : entity_name)
+						entity += word + " ";
+					// the substring() here eliminates the extra space at the end
+					myGuardDog.console.sendMessage(ChatColor.WHITE + "\"" + entity.substring(0, entity.length() - 1) + "\"");
+					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I read " + ChatColor.WHITE + "\""
+							+ entity_name[entity_name.length - 1].substring(1, entity_name[entity_name.length - 1].length() - 1) + "\"" + ChatColor.DARK_RED
+							+ " as the data value in the data suffix.");
+					exception.printStackTrace();
+				}
+			// now we need to adjust the final result based on the gaps in I.D.s
+			for (short[] gap : entity_gaps)
+				if (result_id > gap[0])
+					result_id += (gap[1] - gap[0] - 1);
+				else
+					break;
+		}
 		return new Integer[] { result_id, result_data };
 	}
 
@@ -860,6 +1004,9 @@ public class Wiki {
 				data = 0;
 			else
 				data = 1;
+		else if (entity.getType() == EntityType.SHEEP)
+			// the data for the sheep is organized in the same way as the wool data; dye data goes in the opposite direction
+			data = ((Sheep) entity).getColor().getWoolData();
 		return getEntityName(entity.getEntityId(), data, give_data_suffix, singular);
 	}
 
