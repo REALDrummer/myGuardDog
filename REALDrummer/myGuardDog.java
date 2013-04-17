@@ -79,7 +79,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	private static ArrayList<String> confirmed_gamemode_changers = new ArrayList<String>(), halted_players = new ArrayList<String>(), muted_players = new ArrayList<String>();
 	private static Timer autosave_timer;
 
-	// TODO: make an int[] of all the item I.D.s of items that break if the block attached to them breaks
 	// TODO: make /busy top (#) show the busiest people on the server by comparing the sizes of the cause log files
 	// TODO: make a turn on PvP command for specific players
 	// TODO: make sure players_to_inform HashMaps are saved in temp data as well as offline_player_gamemodes and gamemodes_to_change
@@ -110,7 +109,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	public void onDisable() {
-		autosave_timer.stop();
 		// save the server data
 		new TimedMethod(console, "hard save", true, null).run();
 		// done disabling
@@ -163,9 +161,10 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			return true;
 		} else if ((command.equalsIgnoreCase("mGD") || command.equalsIgnoreCase("myGuardDog")) && parameters.length > 1 && parameters[0].equalsIgnoreCase("save")
 				&& (parameters[1].equalsIgnoreCase("logs") || (parameters.length > 2 && parameters[1].equalsIgnoreCase("the") && parameters[2].equalsIgnoreCase("logs")))) {
-			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin"))
+			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")) {
+				save_in_progress = true;
 				new TimedMethod(sender, "save the logs", true, null).run();
-			else if (command.equalsIgnoreCase("myGuardDog"))
+			} else if (command.equalsIgnoreCase("myGuardDog"))
 				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/myGuardDog save" + ChatColor.RED + ".");
 			else
 				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/mGD save" + ChatColor.RED + ".");
@@ -194,11 +193,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			return true;
 		} else if (command.equalsIgnoreCase("rollback") || command.equalsIgnoreCase("rb")) {
 			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.rollback") || sender.hasPermission("myguarddog.admin")) {
-				if (roll_back_in_progress) {
-					sender.sendMessage(ChatColor.RED
-							+ "Sorry, but there's already a roll back in progress. I'm afraid you'll have to wait until that one is done before you can start another roll back.");
-					return true;
-				}
 				// if there are no parameters, that's supposed to mean that you want to roll back ALL events
 				// however, since that would be a really, REALLY big change, we want to make sure someone didn't just put no parameters by accident.
 				if (parameters.length == 0) {
@@ -211,7 +205,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				}
 				if (events.size() > 200)
 					sender.sendMessage(ChatColor.YELLOW + "One moment please. I need to save the logs before we start.");
-				new TimedMethod(sender, "roll back", false, parameters).run();
+				new TimedMethod(sender, "roll back", parameters, null).run();
 				// if they used /rollback again after you asked them to confirm their other /rollback command, clearly they want to make changes, so we should
 				// ignore the first command by cancelling the question concerning it
 				if ((sender instanceof Player && players_questioned_about_rollback.containsKey(sender.getName())))
@@ -276,16 +270,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			} else
 				return null;
 		}
-	}
-
-	public static String replaceAll(String to_return, String to_change, String to_change_to) {
-		int index = 0;
-		while (to_return.contains(to_change) && to_return.length() >= index + to_change.length()) {
-			if (to_return.substring(index, index + to_change.length()).equals(to_change))
-				to_return = to_return.substring(0, index) + to_change_to + to_return.substring(index + to_change.length());
-			index++;
-		}
-		return to_return;
 	}
 
 	public static int translateStringtoTimeInms(String written) {
@@ -545,13 +529,18 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	@EventHandler(priority = EventPriority.HIGH)
 	public void logExplosions(EntityExplodeEvent event) {
 		// identify the cause of the event
-		String cause = "something", action = "blew up";
+		// TODO EXT TEMP
+		console.sendMessage(ChatColor.YELLOW + "entity I.D. = " + event.getEntity().getEntityId());
+		console.sendMessage(ChatColor.YELLOW + "T.N.T. minecart I.D. = " + Wiki.getEntityIdAndDataString("a T.N.T. minecart"));
+		// TODO END TEMP
+		String cause = Wiki.getEntityName(event.getEntity(), true, true), action = "blew up";
+		// TODO TEMP
+		console.sendMessage(ChatColor.YELLOW + "cause = \"" + cause + "\"");
 		if (event.getEntityType() == EntityType.CREEPER) {
-			cause = "a creeper";
 			double distance = 0;
 			for (Entity entity : event.getEntity().getNearbyEntities(6, 6, 6))
 				if (entity.getType() == EntityType.PLAYER
-						&& (cause.equals("a creeper") || distance > Math.sqrt(Math.pow(event.getEntity().getLocation().getX() - entity.getLocation().getX(), 2)
+						&& (cause == null || distance > Math.sqrt(Math.pow(event.getEntity().getLocation().getX() - entity.getLocation().getX(), 2)
 								+ Math.pow(event.getEntity().getLocation().getY() - entity.getLocation().getY(), 2)
 								+ Math.pow(event.getEntity().getLocation().getZ() - entity.getLocation().getZ(), 2)))) {
 					cause = ((Player) entity).getName();
@@ -562,24 +551,23 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 									+ Math.pow(event.getEntity().getLocation().getY() - entity.getLocation().getY(), 2)
 									+ Math.pow(event.getEntity().getLocation().getZ() - entity.getLocation().getZ(), 2));
 				}
-		} else if (event.getEntityType() == EntityType.PRIMED_TNT) {
-			cause = "T.N.T.";
+		} else if (event.getEntityType() == EntityType.PRIMED_TNT || event.getEntityType() == EntityType.MINECART_TNT) {
+			// TODO: figure out a way to see who placed a T.N.T. minecart
 			// try to find out who placed the T.N.T.
 			// first, see if another explosion caused the ignition of this and if so, it would have been logged
 			if (primed_TNT_causes.get(event.getEntity().getUniqueId()) != null) {
 				cause = primed_TNT_causes.get(event.getEntity().getUniqueId());
 				primed_TNT_causes.remove(event.getEntity().getUniqueId());
-			}
-			if (cause.equals("T.N.T."))
+			} else
 				// next, look through the events ArrayList for one where someone placed T.N.T. at or above the location of the explosion
 				for (int i = events.size() - 1; i >= 0; i--)
-					if (events.get(i).action.equals("placed") && events.get(i).objects[0].equals("T.N.T.") && events.get(i).x - 2 <= event.getLocation().getBlockX()
+					if (events.get(i).action.equals("placed") && events.get(i).objects[0].equals("some T.N.T.") && events.get(i).x - 2 <= event.getLocation().getBlockX()
 							&& events.get(i).x + 2 >= event.getLocation().getBlockX() && events.get(i).z - 2 <= event.getLocation().getBlockZ()
 							&& events.get(i).z + 2 >= event.getLocation().getBlockZ()) {
 						cause = events.get(i).cause;
 						break;
 					}
-			if (cause.equals("T.N.T.")) {
+			if (cause.equals("some T.N.T.") || cause.equals("a T.N.T. minecart")) {
 				// if it wasn't a recent event, look through the logged events
 				File log_file =
 						new File(position_logs_folder, "(" + event.getLocation().getBlockX() + ", " + event.getLocation().getBlockZ() + ") "
@@ -590,7 +578,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 						String save_line = in.readLine();
 						while (save_line != null) {
 							Event placement_event = new Event(save_line);
-							if (placement_event.action.equals("placed") && placement_event.objects[0].equals("T.N.T.")
+							if (placement_event.action.equals("placed") && placement_event.objects[0].equals("some T.N.T.")
 									&& placement_event.x - 2 <= event.getLocation().getBlockX() && placement_event.x + 2 >= event.getLocation().getBlockX()
 									&& placement_event.z - 2 <= event.getLocation().getBlockZ() && placement_event.z + 2 >= event.getLocation().getBlockZ()) {
 								cause = placement_event.cause;
@@ -607,20 +595,10 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					}
 				}
 			}
-			if (!cause.equals("T.N.T."))
+			if (!cause.equals("some T.N.T.") && !cause.equals("a T.N.T. minecart"))
 				action = "T.N.T.'d";
 			else
 				console.sendMessage(ChatColor.RED + "I couldn't find the person who caused this T.N.T. explosion!");
-		} else if (event.getEntityType() == EntityType.GHAST)
-			cause = "a Ghast";
-		else if (event.getEntityType() == EntityType.ENDER_DRAGON) {
-			cause = "the Ender Dragon";
-			// check to see if the object that exploded was fire and if it is, ignore it because it makes no sense and the Enderdragon glitches and
-			// "blows up fire" all the time
-			if (event.blockList().get(0).getTypeId() == 51) {
-				event.setCancelled(true);
-				return;
-			}
 		}
 		// organize the block list so that it saves the events from top to bottom so that when you roll it back, it will repair the bottom first, which is
 		// important with falling blocks
@@ -775,15 +753,15 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
-	public void logEndermanBlockInteractions(EntityChangeBlockEvent event) {
+	public void logEndermanBlockInteractionsAndSandAndGravelFalling(EntityChangeBlockEvent event) {
 		if (event.getEntityType() == EntityType.ENDERMAN)
 			if (event.getBlock().getTypeId() != 0)
 				events.add(new Event("an Enderman", "picked up", event.getBlock(), null));
 			else
 				server.getScheduler().scheduleSyncDelayedTask(this, new TimedMethod(console, "track Enderman placements", event.getBlock(), null), 1);
-		else if (event.getEntityType() != EntityType.SHEEP)
-			console.sendMessage("A " + event.getEntityType().getName() + " caused an unknown EntityBlockChangeEvent at (" + event.getBlock().getX() + ", "
-					+ event.getBlock().getY() + ", " + event.getBlock().getZ() + ")!");
+		else if (event.getEntityType() != EntityType.SHEEP) {
+			// TODO: log falling sand and gravel
+		}
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)

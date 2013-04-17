@@ -240,14 +240,14 @@ public class Event {
 			rolled_back = true;
 		else
 			rolled_back = false;
-		String message = ChatColor.WHITE + "date: " + getDate('/') + "; time: " + getTime(':') + "; cause: " + cause + "; action: " + action + "; objects: ";
-		if (objects != null)
-			for (String object : objects)
-				message += "\"" + object + "\" ";
-		message +=
-				"; x=" + x + "; y=" + y + "; z=" + z + "; world: " + world.getWorldFolder().getName() + "; in Creative Mode=" + in_Creative_Mode + "; rolled back="
-						+ rolled_back;
-		myGuardDog.console.sendMessage(message);
+		// String message = ChatColor.WHITE + "date: " + getDate('/') + "; time: " + getTime(':') + "; cause: " + cause + "; action: " + action + "; objects: ";
+		// if (objects != null)
+		// for (String object : objects)
+		// message += "\"" + object + "\" ";
+		// message +=
+		// "; x=" + x + "; y=" + y + "; z=" + z + "; world: " + world.getWorldFolder().getName() + "; in Creative Mode=" + in_Creative_Mode + "; rolled back="
+		// + rolled_back;
+		// myGuardDog.console.sendMessage(message);
 	}
 
 	// time and date constructors

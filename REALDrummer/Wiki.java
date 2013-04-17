@@ -5,6 +5,8 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.Painting;
 import org.bukkit.entity.Sheep;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
@@ -175,7 +177,7 @@ public class Wiki {
 			{ { "stone brick stairs", "some stone brick stairs", "stone brick steps", "stone stairs", "stone steps" } },
 			{ { "mycelium", "some mycelium", "mushroom grass", "shroom grass", "mushroom biome grass" } },
 			{ { "lily pads", "a lily pad", "lilies", "pond lilies", "lilypads", "water lily", "water lilies" } },
-			{ { "Nether bricks", "some Nether brick", "Nether fortress bricks blocks", "Nether dungeon bricks blocks" } },
+			{ { "Nether brick blocks", "some Nether brick", "Nether fortress bricks blocks", "Nether dungeon bricks blocks" } },
 			{ { "Nether brick fences", "a Nether brick fence post", "Nether fortress fences", "Nether dungeon fences" } },
 			{ { "Nether brick stairs", "some Nether brick stairs", "Nether fortress stairs", "Nether dungeon stairs", "Nether brick steps", "Nether fortress steps",
 					"Nether dungeon steps" } },
@@ -256,6 +258,7 @@ public class Wiki {
 			{ { "Nether Quartz stairs", "some Nether Quartz stairs", "Nether Quartz steps" } },
 			{ { "activator rails", "an activator rail", "T.N.T. activator rails", "TNT activator rails", "striker rails", "T.N.T. starter rails", "TNT starter rails" } },
 			{ { "droppers", "a dropper", "lazy dispensers", "new dispensers" } },
+			// block I.D.s --> item I.D.s
 			{ { "iron shovels", "an iron shovel", "iron spades" } },
 			{ { "iron pickaxes", "an iron pickaxe", "iron picks" } },
 			{ { "iron axes", "an iron axe", "iron hatchets", "iron tree axe" } },
@@ -359,7 +362,7 @@ public class Wiki {
 			{ { "cooked fish", "a piece of cooked fish", "fish" } },
 			{
 					{ "dyes", "some dye", "wool dyes" },
-					{ "ink sacs", "an ink sac", "squid ink sacs", "squid ink sacks", "squid ink pods", "black wool dyes" },
+					{ "ink sacks", "an ink sack", "squid ink sacks", "squid ink sackks", "squid ink pods", "black wool dyes" },
 					{ "red dye", "some red dye", "rose red wool dyes" },
 					{ "cactus green dye", "some cactus green dye", "cactus green dyes", "cactus green wool dyes" },
 					{ "cocoa beans", "some cocoa beans", "chocolate beans", "brown dyes", "brown wool dyes" },
@@ -562,7 +565,7 @@ public class Wiki {
 					{ { "flying arrows", "a flying arrow", "shot fired arrows" } },
 					{ { "thrown snowballs", "a thrown snowball", "chucked tossed thrown snowballs balls of snow" } },
 					{ { "Ghast fireballs", "a Ghast fireball", "Ghast fired shot fireballs cannonballs explosive exploding fire charges" } },
-					{ { "Blaze fireballs", "a Blaze fireball", "Ghast fired shot fireballs cannonballs explosive exploding fire charges" } },
+					{ { "Blaze fireballs", "a Blaze fireball", "Blaze fired shot fireballs cannonballs explosive exploding fire charges" } },
 					{ { "thrown Ender Pearls", "a thrown Ender Pearl", "Enderman Endermen thrown chucked fired Ender Pearls Enderpearls" } },
 					{ { "thrown Eyes of Ender", "a thrown Eye of Ender", "Enderman Endermen thrown chucked fired Eyes of Ender Endereyes" } },
 					{ { "thrown splash potions", "a thrown splash potion", "thrown chucked fired used potions pots" } },
@@ -570,7 +573,7 @@ public class Wiki {
 							"thrown chucked fired used Bottles glasses o' of Enchanting experience levels" } },
 					{ { "item frames", "an item frame" } },
 					{ { "Wither skull projectiles", "a Wither skull projectile", "Wither bosses boss's skulls projectiles fired heads explosives exploding" } },
-					{ { "primed T.N.T.", "a primed T.N.T.", "lit T.N.T.", "activated T.N.T.", "primed TNT", "lit TNT", "activated TNT", "primed trinitrotoluene",
+					{ { "T.N.T.", "some T.N.T.", "primed T.N.T.", "lit T.N.T.", "activated T.N.T.", "primed TNT", "lit TNT", "activated TNT", "primed trinitrotoluene",
 							"lit trinitrotoluene", "activated trinitrotoluene" } },
 					{ { "falling blocks", "a falling block", "falling gravel", "falling sand", "falling anvils", "falling dragon eggs" } },
 					{ { "fireworks", "a firework", "firework rockets" } },
@@ -635,45 +638,259 @@ public class Wiki {
 							{ "zombie villagers", "a zombie villager", "zombies villagers", "zombies N.P.C.s", "zombies NPCs", "zombies Testificates", "zombified villagers",
 									"zombified N.P.C.s", "zombified NPCs", "zombified Testificates" } },
 					{ { "Ender crystals", "an Ender crystal", "Ender Dragon shield generators" } } };
+	public static final String[][] recipes = {
+			null,
+			null,
+			null,
+			null,
+			{ "Just craft any kind of logs. &b(x4)", "Just craft some oak logs. &b(x4)", "Just craft some spruce logs. &b(x4)", "Just craft some birch logs. &b(x4)",
+					"Just craft some jungle logs. &b(x4)" },
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			{ "Melt sand in a furnace." },
+			null,
+			{ "&1lapis lazuli\nLLL\nLLL\nLLL" },
+			{ "&8&lcobblestone&f, &e&m&obow, &4&oredstone dust\n&8&oCCC\nC&e&m&oB&8&oC\nC&4&oR&8&oC" },
+			{ "&esand\n&0---\n-&eSS\n&0-&eSS", "&esand\n&0---\n-&eSS\n&0-&eSS", "&e&nsandstone slabs\n&0---\n-&e&nS&0-\n-&e&nS&0-",
+					"&e&nsandstone\n&0---\n-&e&nS&0-&bx2\n&0-&e&nS&0-" },
+			{ "&e&m&nwooden planks&f, &4&oredstone dust\n&e&m&nWWW\nW&4&oR&e&m&nW\nWWW" },
+			{ "&f&lwool, &e&m&nwooden planks\n&0---\n&f&lWWW\n&e&m&nWWW" },
+			{ "&6gold ingots&f, &e&msticks&f, &4&oredstone dust\n&6G&0-&6G\nG&f&e&mS&6G&bx6\n&6G&4&oR&6G" },
+			{ "&7iron ingots&f, &8&nstone pressure plate&f, &4&oredstone dust\n&7I &0-&7I \nI &8&nS&7I\nI &4&oR&7I" },
+			{ "&aslimeballs&f, &e&npistons\n&0---\n-&aS&0-\n-&e&nP&0-" },
+			null,
+			null,
+			null,
+			{ "&e&m&nwooden planks&f, &8&lcobblestone&f, &7iron ingots&f, &4&oredstone dust\n&e&m&nWWW\n&8&oC&7I &8&oC\nC&4&oR&8&oC" },
+			null,
+			{ "string\n&0---\n-&fSS\n&0-&fSS", "string\n&0---\n-&fSS\n&0-&fSS", "&f&lwhite wool &f(not colored wool), &6orange dye\n&0---\n-&f&lW&0-\n-&6O&0-",
+					"&f&lwhite wool &f(not colored wool), &dmagenta dye\n&0---\n-&f&lW&0-\n-&dM&0-",
+					"&f&lwhite wool &f(not colored wool), &blight blue dye\n&0---\n-&f&lW&0-\n-&6L&0-",
+					"&f&lwhite wool &f(not colored wool), &edandelion yellow dye\n&0---\n-&f&lW&0-\n-&eD&0-",
+					"&f&lwhite wool &f(not colored wool), &alime green dye\n&0---\n-&f&lW&0-\n-&aL&0-",
+					"&f&lwhite wool &f(not colored wool), &dpink dye\n&0---\n-&f&lW&0-\n-&dP&0-",
+					"&f&lwhite wool &f(not colored wool), &8gray dye\n&0---\n-&f&lW&0-\n-&8G&0-",
+					"&f&lwhite wool &f(not colored wool), &7light gray dye\n&0---\n-&f&lW&0-\n-&7L&0-",
+					"&f&lwhite wool &f(not colored wool), &9cyan dye\n&0---\n-&f&lW&0-\n-&9C&0-",
+					"&f&lwhite wool &f(not colored wool), &5purple dye\n&0---\n-&f&lW&0-\n-&5P&0-",
+					"&f&lwhite wool &f(not colored wool), &1lapis lazuli\n&0---\n-&f&lW&0-\n-&1L&0-",
+					"&f&lwhite wool &f(not colored wool), &ccocoa beans\n&0---\n-&f&lW&0-\n-&cC&0-",
+					"&f&lwhite wool &f(not colored wool), &2cactus green dye\n&0---\n-&f&lW&0-\n-&2C&0-",
+					"&f&lwhite wool &f(not colored wool), &4rose red dye\n&0---\n-&f&lW&0-\n-&4R&0-",
+					"&f&lwhite wool &f(not colored wool), &0ink sack\n&0---\n-&f&lW&0-\n-&0I &0-" },
+			null,
+			null,
+			null,
+			null,
+			null,
+			{ "&6gold ingots\nGGG\nGGG\nGGG" },
+			{ "&7iron ingots\nI I I\nI I I\nI I I" },
+			null,
+			{ "&5&kM &fcan be cobblestone, stone, stone bricks, wooden planks, bricks, or sandstone\n&0---\n---&bx6\n&5&kMMM", "&8stone\n&0---\n---&bx6\n&8SSS",
+					"&e&nsandstone\n&0---\n---&bx6\n&8SSS", "&e&m&nwooden planks\n&0---\n---&bx6\n&e&m&nWWW", "&8&lcobblestone\n&0---\n---&bx6\n&8&lCCC",
+					"&c&nbrick blocks\n&0---\n---&bx6\n&c&nBBB", "&8&m&n\n&0---\n---&bx6\n&8&m&nSSS", "&4&m&nNether brick blocks\n&0---\n---&bx6\n&4&m&nNNN",
+					"&f&nNether Quartz blocks\n&0---\n---&bx6\n&f&nNNN" },
+			{ "&cbricks\n&0---\n-&cBB\n&0-&cBB" },
+			{ "&esand&f, &8&ogunpowder\n&8&oG&eS&8&oG\n&eS&8&oG&eS\n&8&oG&eS&8&oG" },
+			{ "&e&m&nwooden planks&f, &c&obooks\n&e&m&nWWW\n&c&oBBB\n&e&m&nWWW" },
+			null,
+			null,
+			{ "&0coal or charcoal, &e&msticks\n&0---\n-&0C&0-&bx4\n-&e&mS&0-" },
+			null,
+			null,
+			{ "&e&m&noak wood planks\n&0--&e&m&nW\n&0-&e&m&nWW&bx4\n&e&m&nWWW" },
+			{ "&e&m&nwooden planks\nWWW\nW&0-&e&m&nW\nWWW" },
+			null,
+			null,
+			{ "&bdiamonds\nDDD\nDDD\nDDD" },
+			{ "&e&m&nwooden planks\n&0---\n-&e&m&nWW\n&0-&e&m&nWW" },
+			null,
+			null,
+			{ "&8&lcobblestone\nCCC\nC&0-&8&oC\nCCC" },
+			null,
+			{ "&e&m&nwooden planks&f, &e&msticks\n&nWWW\nWWW&bx3\n&0-&e&mS&0-" },
+			{ "&e&m&nwooden planks\n&0-&e&m&nWW\n&0-&e&m&nWW\n&0-&e&m&nWW" },
+			{ "&e&msticks\nS&0-&e&mS\nSSS&bx3\n&e&mS&0-&e&mS" },
+			{ "&7iron ingots&f, &e&msticks\n&7I &0-&7I\nI &e&mS&7I\nI &0- &7I" },
+			{ "&8&lcobblestone\n&0--&8&oC\n&0-&8&oCC&bx4\n&8&oCCC" },
+			{ "&e&m&nwooden planks&f, &e&msticks\n&nWWW\nWWW&bx3\n&0-&e&mS&0-" },
+			{ "&e&msticks&f, &8&lcobblestone\n&0---\n-&e&mS&0-\n-&8&oC&0-" },
+			{ "&8stone\n&0---\n---\n-&8SS" },
+			{ "&7iron ingots\n&0-&7I I\n&0-&7I I\n&0-&7I I" },
+			{ "&e&m&nwooden planks\n&0---\n---\n-&e&m&nWW" },
+			null,
+			null,
+			{ "&4&oredstone dust&f, &e&msticks\n&0---\n-&4&oR&0-\n-&e&mS&0-" },
+			null,
+			{ "&8stone\n&0---\n-&8S&0-\n---" },
+			null,
+			null,
+			{ "&fsnowballs\n&0---\n-&fSS\n&0-&fSS" },
+			null,
+			{ "&7&oclay\n&0---\n-&7&oCC\n&0-&7&oCC" },
+			null,
+			{ "&e&m&nwooden planks&f, &bdiamonds\n&e&m&nWWW\n&e&m&nW&bD&e&m&nW\n&e&m&nWWW" },
+			{ "&e&msticks\n&0---\n&e&mSSS&bx2\n&e&m&nSSS" },
+			null,
+			null,
+			null,
+			{ "&6&oglowstone dust\n&0---\n-&6&oGG\n&0-&6&oGG" },
+			null,
+			{ "&6pumpkins&f, &mtorches\n&0---\n-&6P&0-\n-&f&mT&0-" },
+			{ "&fmilk&f, &f&osugar&f, &eeggs&f, &e&m&n&owheat\n&fMMM\n&f&oS&eE&f&oS\n&e&m&n&oWWW" },
+			{ "&4&oredstone dust&f, &4&mredstone torches&f, &8stone\n&0---\n&4&mR&4&oR&mR\n&8SSS" },
+			null,
+			null,
+			{ "&e&m&nwooden planks\n&0---\n&e&m&nWWW&bx2\n&e&m&nWWW" },
+			null,
+			{ "&8stone\n&0---\n-&8SS\n&0-&8SS", "&8stone\n&0---\n-&8SS\n&0-&8SS", null, null, null },
+			null,
+			null,
+			{ "&7iron ingots\n&0---\n&7I I I\nI I I" },
+			{ "&fglass\n&0---\n&fGGG&bx16\n&fGGG" },
+			null,
+			null,
+			null,
+			null,
+			{ "&e&msticks&f, &e&m&nwooden planks\n&0---\n&e&mS&nW&e&mS\nS&nW&e&m&nS" },
+			{ "&c&nbrick blocks\n&0--&c&nB\n&0-&c&nBB\nBBB" },
+			{ "&8&m&nstone bricks\n&0--&8&m&nS\n&0-&8&m&nSS\nSSS" },
+			null,
+			null,
+			null,
+			{ "&4&m&nNether brick blocks\n&0---\n&4&m&nNNN\nNNN" },
+			{ "&4&m&nNether brick blocks\n&0--&4&m&nN\n&0-&4&m&nNN\nNNN" },
+			null,
+			{ "&c&obooks&f, &l&nobsidian&f, &bdiamonds\n&0-&c&oB&0-\n&bD&0&l&nO&bD\n&0&l&nOOO" },
+			{ "&8&ocobbestone&f, &6&mBlaze rods\n&0---\n-&6&mB&0-\n&8&oCCC" },
+			{ "&7iron ingots\nI &0-&7I\nI &0-&7I\nI I I" },
+			null,
+			null,
+			null,
+			null,
+			{ "&6&nglowstone blocks&f, &4&oredstone dust\n&0-&4&oR&0-\n&4&oR&6&nG&4&oR\n&0-&4&oR&0-" },
+			null,
+			null,
+			{ "&e&m&nwooden planks\n&0---\n---&bx6\n&e&m&nWWW", "&e&m&noak wooden planks\n&0---\n---&bx6\n&e&m&nWWW", "&e&m&nspruce wood planks\n&0---\n---&bx6\n&e&m&nWWW",
+					"&e&m&nbirch wood planks\n&0---\n---&bx6\n&e&m&nWWW", "&e&m&njungle wood planks\n&0---\n---&bx6\n&e&m&nWWW" },
+			null,
+			{ "&e&nsandstone\n&0--&e&nS\n&0-&e&nSS&bx4\n&e&nSSS" },
+			null,
+			{ "&a&l&oEyes of Ender&f, &0&l&nobsidian\nOOO\nO&a&l&oE&0&l&nO\nOOO" },
+			{ "&e&m&nwooden planks&f, &e&msticks&f, &7iron ingots\n&0-&7I &0-\n-&e&mS&0-&bx2\n&0-&e&m&nW&0-" },
+			null,
+			{ "&aemeralds\nEEE\nEEE\nEEE" },
+			{ "&e&m&nspruce wood planks\n&0--&e&m&nW\n&0-&e&m&nWW&bx4\n&e&m&nWWW" },
+			{ "&e&m&nbirch wood planks\n&0--&e&m&nW\n&0-&e&m&nWW&bx4\n&e&m&nWWW" },
+			{ "&e&m&njungle wood planks\n&0--&e&m&nW\n&0-&e&m&nWW&bx4\n&e&m&nWWW" },
+			null,
+			{ "&b&lNether stars&f, glass, &0&l&nobsidian\n&fGGG\nG&b&lN&fG\n&0&lOOO" },
+			{ "&8&lcobblestone\n&0---\n&8&lCCC&bx6\n&8&lCCC", "&8&lcobblestone\n&0---\n&8&lCCC&bx6\n&8&lCCC", "&8&l&omossy cobblestone\n&0---\n&8&l&oCCC&bx6\n&8&l&oCCC" },
+			{ "&cbricks\n&0---\n&cB&0-&cB\n&0-&cB&0-" },
+			null,
+			null,
+			{ "&e&m&nwooden planks\n&0---\n-&e&m&nW&0-\n---" },
+			null,
+			{ "&7&niron blocks&f, &7iron ingots\n&7&nI I I\n&0-&7I &0-\nI I I" },
+			{ "&e&m&nchests&f, &e&mtripwire hooks\n&0---\n&0-&e&m&nC&0-\n-&e&mT&0-" },
+			{ "&6gold ingots\n&0---\n---\n-&6GG" },
+			{ "&7iron ingots\n&0---\n---\n-&7I I" },
+			{ "&8stone&f, &4&mredstone torches&f, Nether Quartz\n&0-&4&mR&0-\n&4&mR&fN&4&mR\n&8SSS" },
+			null,
+			{ "&fglass, Nether Quartz, &e&m&nwooden plank slabs\n&fGGG\nNNN\n&e&m&nWWW" },
+			null,
+			{ "&4&oredstone dust\nRRR\nRRR\nRRR" },
+			null,
+			{ "&7iron ingots&f, &e&m&nchest\n&7I &0-&7I\nI &e&m&nC&7I\n&0-&7I &0-" },
+			{ "&fNether Quartz\n&0---\n-&fNN\n&0-&fNN", "&fNether Quartz\n&0---\n-&fNN\n&0-&fNN", "&f&nNether Quartz slabs\n&0---\n-&f&nN&0-\n-&f&nN&0-",
+					"&f&nNether Quartz blocks\n&0---\n-&f&nN&0-&bx2\n&0-&f&nN&0-" },
+			{ "&f&nNether Quartz blocks\n&0--&f&nN\n&0-&f&nNN\nNNN" },
+			{ "&7iron ingots&f, &e&msticks&f, &4&mredstone torches\n&7I &e&mS&7I\nI &4&mR&7I\nI &e&mS&7I" },
+			{ "&8&lcobbestone&f, &4&oredstone dust&f, &8hopper\n&8&lCCC\nC&8H&lC\nC&4&oR&8&lC" },// block I.D.s --> item I.D.s
+			{ "&7iron ingots&f, &e&msticks\n&0-&7I &0-\n-&e&mS&0-\n-&e&mS&0-" }, { "&7iron ingots&f, &e&msticks\n&7I I I\n&0-&e&mS&0-\n-&e&mS&0-" },
+			{ "&7iron ingots&f, &e&msticks\n&7I I I\n&0-&e&mS&0-\n&0-&e&mS&0-" } };
 	// there gap arrays are here to compensate for the gaps in I.D.s; for example, from the block I.D.s to the item I.D.s (starting at item #159 in this list
 	// since 158 is the last block I.D.), there is a 98-number gap.
 	// there are two numbers in each item in this list: the item I.D. of the last item before the gap and the item I.D. of the first item after the gap
-	// the point of this is to avoid what I had originally, which was just an insanely long list of null values in item_IDs itself
-	private static short[][] item_gaps = { { 158, 256 }, { 408, 2256 } }, entity_gaps = { { 2, 9 }, { 22, 41 }, { 66, 90 }, { 99, 120 }, { 120, 200 } }, potion_data_gaps = {
-			{ 0, 16 }, { 16, 32 }, { 32, 64 }, { 64, 8193 }, { 8206, 8225 }, { 8229, 8233 }, { 8236, 8257 }, { 8266, 8270 }, { 8270, 16385 }, { 16398, 16417 },
-			{ 16421, 16425 }, { 16428, 16449 }, { 16458, 16462 } }, spawn_egg_data_gaps = { { -1, 50 }, { 66, 90 }, { 98, 120 } };
 
-	// TODO: modify getEntityIdAndData to account for "something with the I.D." and data suffix instances
+	// TODO: finish the recipes
+	// the point of this is to avoid what I had originally, which was just an insanely long list of null values in item_IDs itself
+	private static int[] must_be_attached_bottom_only_IDs = { 6, 26, 27, 28, 31, 32, 37, 38, 39, 40, 55, 59, 63, 64, 66, 70, 71, 72, 78, 81, 83, 93, 94, 104, 105, 111, 115,
+			132, 140, 147, 148, 149, 150, 157 }, must_be_attached_can_be_sideways_IDs = { 50, 65, 68, 69, 75, 76, 77, 96, 106, 127, 131 };
+	private static final short[][] item_gaps = { { 158, 256 }, { 408, 2256 } }, entity_gaps = { { 2, 9 }, { 22, 41 }, { 66, 90 }, { 99, 120 }, { 120, 200 } },
+			potion_data_gaps = { { 0, 16 }, { 16, 32 }, { 32, 64 }, { 64, 8193 }, { 8206, 8225 }, { 8229, 8233 }, { 8236, 8257 }, { 8266, 8270 }, { 8270, 16385 },
+					{ 16398, 16417 }, { 16421, 16425 }, { 16428, 16449 }, { 16458, 16462 } }, spawn_egg_data_gaps = { { -1, 50 }, { 66, 90 }, { 98, 120 } };
 
 	// working methods
-	public static Integer[] getItemIdAndData(String[] item_name) {
+	/**
+	 * This method returns a two-item Integer array or <b>null</b>. <tt>[0]</tt> is the I.D. of the item given by <tt>item_name</tt>. <tt>[1]</tt> is the data
+	 * value of the item given, e.g. 2 for birch wood (because all logs have the I.D. 17, but a data value of 2 refers to birch wood specifically). If
+	 * <tt><b>item_name</b></tt> specifies a general item name such as "logs", the data value returned will be -1.
+	 * 
+	 * @param item_name
+	 *            is the name of the item or block type that was specified split into separate words.
+	 * @param item_ID
+	 *            is <b>true</b> if this method should only return item I.D.s and not block type I.D.s, <b>false</b> if this method should only return block
+	 *            type I.D.s and not item I.D.s, or <b>null</b> if it should return either item I.D.s or block type I.D.s, in which case it will proritize item
+	 *            I.D.s over block type I.D.s.
+	 * @return the I.D. and numerical data value for the item given by name in <tt><b>item_name</tt></b> in a two-item Integer array or <tt><b>null</b></tt> if
+	 *         <b>1)</b> the item specified does not exist or <b>2)</b> the object specified is an item, not a block type, and it was specified in
+	 *         <tt><b>item_ID</b></tt> that this method should only return block types or vice versa.
+	 * @NOTE This method returns both the I.D. and the data value of an item based on the item's name because it encourages the programmer to only use this
+	 *       method once as necessary, not once to get the I.D. and again to get the data. It is a long, somewhat complex method and it must search through
+	 *       hundreds and hundreds of Strings in the <tt>item_IDs</tt> array to find a match. This method should only be called when necessary and results
+	 *       returned by this method should be stored in a variable if needed more than once; do not simply call this method a second time.
+	 * @see {@link #getItemIdAndData(String, Boolean) getItemIdAndData(String, Boolean)}, {@link #getItemIdAndDataString(String[], Boolean)
+	 *      getItemIdAndDataString(String[], Boolean)}, and {@link #getItemIdAndDataString(String, Boolean) getItemIdAndDataString(String, Boolean)}
+	 */
+	public static Integer[] getItemIdAndData(String[] item_name, Boolean item_ID) {
 		Integer result_id = null, result_data = null, result_i = null;
-		for (int id = 0; id < item_IDs.length; id++)
-			if (item_IDs[id] != null)
-				for (int data = 0; data < item_IDs[id].length; data++)
-					if (item_IDs[id][data] != null)
-						for (int i = 0; i < item_IDs[id][data].length; i++) {
+		int start_id = 0;
+		// if item_ID is true, we only want item I.D.s, so start searching at item I.D.s
+		if (item_ID != null && item_ID)
+			start_id = item_gaps[0][0] + 1;
+		for (int check_id = start_id; check_id < item_IDs.length; check_id++) {
+			if (item_IDs[check_id] != null)
+				for (int check_data = 0; check_data < item_IDs[check_id].length; check_data++)
+					if (item_IDs[check_id][check_data] != null)
+						for (int i = 0; i < item_IDs[check_id][check_data].length; i++) {
 							boolean contains_query = true;
 							for (String word : item_name)
 								// if word starts and ends with parentheses, it's a data suffix, so ignore it in the search; also ignore articles
 								if (!(word.startsWith("(") && word.endsWith(")")) && !word.equalsIgnoreCase("a") && !word.equalsIgnoreCase("an")
 										&& !word.equalsIgnoreCase("the") && !word.equalsIgnoreCase("some")
-										&& !item_IDs[id][data][i].toLowerCase().contains(word.toLowerCase())) {
+										&& !item_IDs[check_id][check_data][i].toLowerCase().contains(word.toLowerCase())) {
 									contains_query = false;
 									break;
 								}
 							// translation of this if statement: if the item contains the query and either we haven't found another result yet, the old result
 							// has a longer name than this new one, or the length of the names is the same but this new result is an item I.D. while the old one
-							// is a block I.D., then change the current result to this new item
+							// is a block I.D. and item_ID is null, then change the current result to this new item
 							if (contains_query
-									&& (result_id == null || item_IDs[result_id][result_data][result_i].length() > item_IDs[id][data][i].length() || (item_IDs[result_id][result_data][result_i]
-											.length() == item_IDs[id][data][i].length()
-											&& result_id < 256 && id >= 256))) {
-								result_id = id;
-								result_data = data;
+									&& (result_id == null || item_IDs[result_id][result_data][result_i].length() > item_IDs[check_id][check_data][i].length() || (item_IDs[result_id][result_data][result_i]
+											.equals(item_IDs[check_id][check_data][i])
+											&& item_ID == null && result_id < check_id))) {
+								result_id = check_id;
+								result_data = check_data;
 								result_i = i;
 							}
 						}
+			// if item_IDs is false, we don't want item I.D.s, so stop checking after we have checked the first part, the block I.D.s
+			if (check_id > item_gaps[0][0] && item_ID != null && !item_ID)
+				break;
+		}
 		// if we returned no results, it's possible that the object was "something with the I.D. [id](":"[data])"
 		if (result_id == null)
 			if (item_name[0].equalsIgnoreCase("something") && item_name[1].equalsIgnoreCase("with") && item_name[2].equalsIgnoreCase("the")
@@ -681,7 +898,7 @@ public class Wiki {
 				try {
 					// try reading it as "something with the I.D. [id]"
 					result_id = Integer.parseInt(item_name[4]);
-					result_data = 0;
+					result_data = -1;
 					return new Integer[] { result_id, result_data };
 				} catch (NumberFormatException exception) {
 					try {
@@ -758,6 +975,26 @@ public class Wiki {
 		return new Integer[] { result_id, result_data };
 	}
 
+	/**
+	 * This method returns the name of the item specified by the item or block type I.D. and data given.
+	 * 
+	 * @param id
+	 *            is the item or block type I.D.
+	 * @param data
+	 *            is the numerical data value for the item or block.
+	 * @param give_data_suffix
+	 *            specifies whether or not the name of the item should include the numerical data value at the end of the item name in parentheses (e.g.
+	 *            "a trapdoor <b>(16)</b>"). For logging purposes in myGuardDog, for example, we should be as specific as possible on information about the
+	 *            item, so this argument should be <b>true</b>. However, for messages to users for commands like <i>/id</i>, the data suffix is not helpful and
+	 *            looks awkward, so this argument should be <b>false</b>.
+	 * @param singular
+	 *            specifies whether the item name returned should be returned in the singular form (e.g. "a lever") or in the plural form (e.g. "levers").
+	 *            Singular forms include an article at the beginning. Non-countable items like grass are the same as their plural forms, but with "some" at the
+	 *            beginning ("grass" --> "some grass").
+	 * @return the name of the item specified by the item or block type I.D. and data given.
+	 * @see {@link #getItemName(Block, boolean, boolean) getItemName(Block, boolean, boolean)} and {@link #getItemName(ItemStack, boolean, boolean)
+	 *      getItemName(ItemStack, boolean, boolean)}
+	 */
 	public static String getItemName(int id, int data, boolean give_data_suffix, boolean singular) {
 		// return null if the potion data is inside a gap
 		if (id == 373)
@@ -815,6 +1052,24 @@ public class Wiki {
 		return item;
 	}
 
+	/**
+	 * This method returns a two-item Integer array or <b>null</b>. <tt>[0]</tt> is the I.D. of the entity given by <tt>entity_name</tt>. <tt>[1]</tt> is the
+	 * data value of the item given, e.g. 1 for charged creepers (because all creepers have the I.D. 50, but a data value of 1 refers to charged creepers
+	 * specifically). If <tt><b>entity_name</b></tt> specifies a general item name such as "creepers", the data value returned will be -1.
+	 * 
+	 * @param entity_name
+	 *            is <b>true</b> if this method should only return item I.D.s and not block type I.D.s, <b>false</b> if this method should only return block
+	 *            type I.D.s and not item I.D.s, or <b>null</b> if it should return either item I.D.s or block type I.D.s, in which case it will proritize item
+	 *            I.D.s over block type I.D.s.
+	 * @return the I.D. and numerical data value for the item given by name in <tt><b>entity_name</tt></b> in a two-item Integer array or <tt><b>null</b></tt>
+	 *         if the item specified does not exist.
+	 * @see {@link #getEntityIdAndData(String) getEntityIdAndData(String)}, {@link #getEntityIdAndDataString(String[]) getEntityIdAndDataString(String[])}, and
+	 *      {@link #getEntityIdAndDataString(String) getEntityIdAndDataString(String)}
+	 * @NOTE This method returns both the I.D. and the data value of an entity based on the entity's name because it encourages the programmer to only use this
+	 *       method once as necessary, not once to get the I.D. and again to get the data. It is a long, somewhat complex method and it must search through
+	 *       hundreds of Strings in the <tt>entity_IDs</tt> array to find a match. This method should only be called when necessary and results returned by this
+	 *       method should be stored in a variable if needed more than once; do not simply call this method a second time.
+	 */
 	public static Integer[] getEntityIdAndData(String[] entity_name) {
 		Integer result_id = null, result_data = null, result_i = null;
 		for (int id = 0; id < entity_IDs.length; id++)
@@ -908,6 +1163,25 @@ public class Wiki {
 		return new Integer[] { result_id, result_data };
 	}
 
+	/**
+	 * This method returns the name of the entity specified by the I.D. and data given.
+	 * 
+	 * @param id
+	 *            is the entity type I.D.
+	 * @param data
+	 *            is the numerical data value for the entity. Data is only used for creepers states (charged vs. non-charged), villagers (professions), and
+	 *            sheep (colors).
+	 * @param give_data_suffix
+	 *            specifies whether or not the name of the entity should include the numerical data value at the end of the item name in parentheses (e.g.
+	 *            "a trapdoor <b>(16)</b>"). For logging purposes in myGuardDog, for example, we should be as specific as possible on information about the
+	 *            item, so this argument should be <b>true</b>. However, for messages to users for commands like <i>/eid</i>, the data suffix is not helpful and
+	 *            looks awkward, so this argument should be <b>false</b>.
+	 * @param singular
+	 *            specifies whether the entity name returned should be returned in the singular form (e.g. "a creeper") or in the plural form (e.g. "creepers").
+	 *            Singular forms include an article at the beginning.
+	 * @return the name of the entity specified by the I.D. and data given.
+	 * @see {@link #getEntityName(Entity, boolean, boolean) getEntityName(Entity, boolean, boolean)}
+	 */
 	public static String getEntityName(int id, int data, boolean give_data_suffix, boolean singular) {
 		// return null if the I.D. is inside a gap
 		for (short[] gap : entity_gaps)
@@ -945,18 +1219,96 @@ public class Wiki {
 		return entity;
 	}
 
+	/**
+	 * This method returns a four-line String describing the recipe for crafting the specified item indicated by the provided I.D. This String can be color
+	 * coded and displayed in the Minecraft chat or console to describe how to craft the item indicated.
+	 * 
+	 * @param id
+	 *            is the I.D. of the item or block for which the recipe was requested.
+	 * @param data
+	 *            is the numerical data value for the item or block.
+	 * @return a four-line String describing the recipe for crafting the specified item indicated by the provided I.D.
+	 * @see {@link #getRecipe(String) getRecipe(String)}
+	 */
 	public static String getRecipe(int id, int data) {
 		// TODO
 		return ChatColor.GOLD + "Coming soon to a server near you!";
 	}
 
-	// alternate input or output methods
-	public static Integer[] getItemIdAndData(String item_name) {
-		return getItemIdAndData(item_name.split(" "));
+	/**
+	 * This method will tell whether or not a certain block will break if the block that it is attached to is broken. No data value is required as input for
+	 * this method because items with the same I.D. consistently have this property in common.
+	 * 
+	 * @param id
+	 *            is the I.D. of the block which needs to be checked for the "must be attached" property.
+	 * @param bottom_only
+	 *            indicates whether the method should return true only <b>1)</b> if the item is one that must be attached on the bottom only like redstone wire
+	 *            or a lily pad (indicated by a <b>true</b> value), <b>2)</b> if the item is one that can be attached sideways like a torch or a wall sign
+	 *            (indicated by a <b>false</b> value), or <b>3)</b> if the item needs to be attached on the bottom or sideways (indicated by a <b>null</b>
+	 *            value).
+	 * @return <b>true</b> if the block given by the I.D. will break if the block it is attached to breaks and it attaches in the way indicated by <b>
+	 *         <tt>bottom_only</tt></b>, <b>false</b> if the block does not need to be attached to another block or not in the way specified by
+	 *         <tt><b>bottom_only</tt></b>, and <b>null</b> if the I.D. given does not apply to a block at all.
+	 */
+	public static Boolean mustBeAttached(int id, Boolean bottom_only) {
+		if (getItemName(id, -1, false, false) == null || id >= 256)
+			return null;
+		if (bottom_only == null || bottom_only)
+			for (int i = 0; i < must_be_attached_bottom_only_IDs.length; i++)
+				if (must_be_attached_bottom_only_IDs[i] == id)
+					return true;
+		if (bottom_only == null || !bottom_only)
+			for (int i = 0; i < must_be_attached_can_be_sideways_IDs.length; i++)
+				if (must_be_attached_can_be_sideways_IDs[i] == id)
+					return true;
+		return false;
 	}
 
-	public static String getItemIdAndDataString(String[] item_name) {
-		Integer[] id_and_data = getItemIdAndData(item_name);
+	// alternate input or output methods
+	/**
+	 * This method returns a two-item Integer array or <b>null</b>. <tt>[0]</tt> is the I.D. of the item given by <tt>item_name</tt>. <tt>[1]</tt> is the data
+	 * value of the item given, e.g. 2 for birch wood (because all logs have the I.D. 17, but a data value of 2 refers to birch wood specifically). If
+	 * <tt><b>item_name</b></tt> specifies a general item name such as "logs", the data value returned will be -1.
+	 * 
+	 * @param item_name
+	 *            is the name of the item or block type that was specified split into separate words.
+	 * @param item_ID
+	 *            is <b>true</b> if this method should only return item I.D.s and not block type I.D.s, <b>false</b> if this method should only return block
+	 *            type I.D.s and not item I.D.s, or <b>null</b> if it should return either item I.D.s or block type I.D.s, in which case it will proritize item
+	 *            I.D.s over block type I.D.s.
+	 * @return the I.D. and numerical data value for the item given by name in <tt><b>item_name</tt></b> in a two-item Integer array or <tt><b>null</b></tt> if
+	 *         <b>1)</b> the item specified does not exist or <b>2)</b> the object specified is an item, not a block type, and it was specified in
+	 *         <tt><b>item_ID</b></tt> that this method should only return block types or vice versa.
+	 * @NOTE This method returns both the I.D. and the data value of an item based on the item's name because it encourages the programmer to only use this
+	 *       method once as necessary, not once to get the I.D. and again to get the data. It is a long, somewhat complex method and it must search through
+	 *       hundreds and hundreds of Strings in the <tt>item_IDs</tt> array to find a match. This method should only be called when necessary and results
+	 *       returned by this method should be stored in a variable if needed more than once; do not simply call this method a second time.
+	 * @see {@link #getItemIdAndData(String[], Boolean) getItemIdAndData(String[], Boolean)}, {@link #getItemIdAndDataString(String[], Boolean)
+	 *      getItemIdAndDataString(String[], Boolean)}, and {@link #getItemIdAndDataString(String, Boolean) getItemIdAndDataString(String, Boolean)}
+	 */
+	public static Integer[] getItemIdAndData(String item_name, Boolean item_ID) {
+		return getItemIdAndData(item_name.split(" "), item_ID);
+	}
+
+	/**
+	 * This method returns a String describing the id and data of the item or <b>null</b>. The String is equivalent to <tt>String.valueOf(</tt>the I.D. of the
+	 * item or block specified<tt>)</tt> if data < 1, but if data > 0, the String is formatted as "[id]:[data]". If <tt><b>item_name</b></tt> specifies a
+	 * general item name such as "logs", the data value returned will be -1; therefore, no data will be included in the String returned.
+	 * 
+	 * @param item_name
+	 *            is the name of the item or block type that was specified split into separate words.
+	 * @param item_ID
+	 *            is <b>true</b> if this method should only return item I.D.s and not block type I.D.s, <b>false</b> if this method should only return block
+	 *            type I.D.s and not item I.D.s, or <b>null</b> if it should return either item I.D.s or block type I.D.s, in which case it will proritize item
+	 *            I.D.s over block type I.D.s.
+	 * @return the I.D. and numerical data value for the item given by name in <tt><b>item_name</tt></b> in a String formatted as "[id]" if data < 1 or
+	 *         "[id]:[data]" otherwise or <tt><b>null</b></tt> if <b>1)</b> the item specified does not exist or <b>2)</b> the object specified is an item, not
+	 *         a block type, and it was specified in <tt><b>item_ID</b></tt> that this method should only return block types or vice versa.
+	 * @see {@link #getItemIdAndData(String[], Boolean) getItemIdAndData(String[], Boolean)}, {@link #getItemIdAndData(String, Boolean) getItemIdAndData(String,
+	 *      Boolean)}, and {@link #getItemIdAndDataString(String, Boolean) getItemIdAndDataString(String, Boolean)}
+	 */
+	public static String getItemIdAndDataString(String[] item_name, Boolean item_ID) {
+		Integer[] id_and_data = getItemIdAndData(item_name, item_ID);
 		if (id_and_data == null)
 			return null;
 		String result = String.valueOf(id_and_data[0]);
@@ -965,8 +1317,25 @@ public class Wiki {
 		return result;
 	}
 
-	public static String getItemIdAndDataString(String item_name) {
-		return getItemIdAndDataString(item_name.split(" "));
+	/**
+	 * This method returns a String describing the id and data of the item or <b>null</b>. The String is equivalent to <tt>String.valueOf(</tt>the I.D. of the
+	 * item or block specified<tt>)</tt> if data < 1, but if data > 0, the String is formatted as "[id]:[data]". If <tt><b>item_name</b></tt> specifies a
+	 * general item name such as "logs", the data value returned will be -1; therefore, no data will be included in the String returned.
+	 * 
+	 * @param item_name
+	 *            is the name of the item or block type that was specified split into separate words.
+	 * @param item_ID
+	 *            is <b>true</b> if this method should only return item I.D.s and not block type I.D.s, <b>false</b> if this method should only return block
+	 *            type I.D.s and not item I.D.s, or <b>null</b> if it should return either item I.D.s or block type I.D.s, in which case it will proritize item
+	 *            I.D.s over block type I.D.s.
+	 * @return the I.D. and numerical data value for the item given by name in <tt><b>item_name</tt></b> in a String formatted as "[id]" if data < 1 or
+	 *         "[id]:[data]" otherwise or <tt><b>null</b></tt> if <b>1)</b> the item specified does not exist or <b>2)</b> the object specified is an item, not
+	 *         a block type, and it was specified in <tt><b>item_ID</b></tt> that this method should only return block types or vice versa.
+	 * @see {@link #getItemIdAndData(String[], Boolean) getItemIdAndData(String[], Boolean)}, {@link #getItemIdAndData(String, Boolean) getItemIdAndData(String,
+	 *      Boolean)}, and {@link #getItemIdAndDataString(String[], Boolean) getItemIdAndDataString(String[], Boolean)}
+	 */
+	public static String getItemIdAndDataString(String item_name, Boolean item_ID) {
+		return getItemIdAndDataString(item_name.split(" "), item_ID);
 	}
 
 	public static String getItemName(ItemStack item, boolean give_data_suffix, boolean singular) {
@@ -1007,7 +1376,21 @@ public class Wiki {
 		else if (entity.getType() == EntityType.SHEEP)
 			// the data for the sheep is organized in the same way as the wool data; dye data goes in the opposite direction
 			data = ((Sheep) entity).getColor().getWoolData();
+		else if (entity.getType() == EntityType.PAINTING)
+			data = ((Painting) entity).getAttachedFace().ordinal();
+		else if (entity.getType() == EntityType.ITEM_FRAME)
+			data = ((ItemFrame) entity).getAttachedFace().ordinal();
 		return getEntityName(entity.getEntityId(), data, give_data_suffix, singular);
 	}
 
+	public static String getRecipe(String item_name) {
+		Integer[] id_and_data = getItemIdAndData(item_name, null);
+		if (id_and_data == null)
+			return null;
+		return getRecipe(id_and_data[0], id_and_data[1]);
+	}
+
+	public static Boolean mustBeAttached(Block block, Boolean bottom_only) {
+		return mustBeAttached(block.getTypeId(), bottom_only);
+	}
 }

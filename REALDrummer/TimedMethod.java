@@ -3,6 +3,7 @@ package REALDrummer;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -15,12 +16,14 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 
 public class TimedMethod implements Runnable {
 	CommandSender sender = null;
 	String method = null;
-	Object[] os = new Object[2];
+	Object[] os;
 	boolean first_iteration = true;
 
 	// for trackTNT()
@@ -53,11 +56,10 @@ public class TimedMethod implements Runnable {
 	// for all rollBackPart[#]() methods
 	private ArrayList<Event> roll_back_events = new ArrayList<Event>();
 
-	public TimedMethod(CommandSender my_sender, String my_method, Object o1, Object o2) {
+	public TimedMethod(CommandSender my_sender, String my_method, Object... my_objects) {
 		sender = my_sender;
 		method = my_method;
-		os[0] = o1;
-		os[1] = o2;
+		os = my_objects;
 	}
 
 	// run() doesn't actually perform any real action; it's an operator, by which I mean it takes the input and directs the processor to the appropriate method
@@ -69,13 +71,35 @@ public class TimedMethod implements Runnable {
 			trackReactionBreaks((Location) os[0], (Event) os[1]);
 		else if (method.equals("track Enderman placements"))
 			trackEndermanPlacements((Block) os[0]);
-		else if (method.equals("save the logs") || method.equals("roll back") || method.equals("hard save")) {
+		else if (method.equals("save the logs") || method.equals("hard save")) {
 			display_message = (Boolean) os[0];
-			if (method.equals("roll back"))
-				parameters = (String[]) os[1];
-			else if (method.equals("hard save"))
+			if (method.equals("hard save"))
 				hard_save = true;
-			saveTheLogsPartIChrono();
+			myGuardDog.save_in_progress = true;
+			method = "check for save";
+			myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 3);
+		} else if (method.equals("roll back")) {
+			display_message = false;
+			parameters = (String[]) os[0];
+			myGuardDog.roll_back_in_progress = true;
+			method = "check for roll back";
+			myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 3);
+		} else if (method.equals("check for save")) {
+			// oddly enough, because saving the logs constantly changes save_in_progress to false, if save_in_progress is true, it means a save is NOT in
+			// progress (and the same applies to roll_back_in_progress with relation to roll backs)
+			if (!hard_save && !myGuardDog.save_in_progress)
+				sender.sendMessage(ChatColor.RED
+						+ "This is not insubordination, but I am afraid that a save is already in progress. Therefore, I cannot start a new one. This current save must terminate first.");
+			else
+				saveTheLogsPartIChrono();
+		} else if (method.equals("check for roll back")) {
+			// oddly enough, because saving the logs constantly changes roll_back_in_progress to false, if roll_back_in_progress is true, it means a roll back
+			// is NOT in progress (and the same applies to save_in_progress with relation to saving)
+			if (!myGuardDog.roll_back_in_progress)
+				sender.sendMessage(ChatColor.RED
+						+ "This is not insubordination, but I am afraid that a roll back is already in progress. Therefore, I cannot start a new one. This current roll back must terminate first.");
+			else
+				saveTheLogsPartIChrono();
 		} else if (method.equals("saveTheLogsPartIChrono"))
 			saveTheLogsPartIChrono();
 		else if (method.equals("saveTheLogsPartIIPos"))
@@ -122,10 +146,13 @@ public class TimedMethod implements Runnable {
 	}
 
 	private void saveTheLogsPartIChrono() {
-		// the purpose of this line is to direct the run() operator ro rhe statement where it does not reset the initializer variables (see the run() operator
+		// the purpose of this line is to direct the run() operator to the statement where it does not reset the initializer variables (see the run() operator
 		// section for this method to see what I mean)
 		method = "saveTheLogsPartIChrono";
-		myGuardDog.save_in_progress = true;
+		if (myGuardDog.save_in_progress)
+			myGuardDog.save_in_progress = false;
+		if (myGuardDog.roll_back_in_progress && parameters != null)
+			myGuardDog.roll_back_in_progress = false;
 		try {
 			if (first_iteration) {
 				first_iteration = false;
@@ -218,6 +245,10 @@ public class TimedMethod implements Runnable {
 
 	private void saveTheLogsPartIIPos() {
 		method = "saveTheLogsPartIIPos";
+		if (myGuardDog.save_in_progress)
+			myGuardDog.save_in_progress = false;
+		if (myGuardDog.roll_back_in_progress && parameters != null)
+			myGuardDog.roll_back_in_progress = false;
 		try {
 			for (int i = iterations * 25; i < iterations * 25 + 25; i++) {
 				if (i == events_to_save.size()) {
@@ -271,11 +302,14 @@ public class TimedMethod implements Runnable {
 
 	private void saveTheLogsPartIIICause() {
 		method = "saveTheLogsPartIIICause";
+		if (myGuardDog.save_in_progress)
+			myGuardDog.save_in_progress = false;
+		if (myGuardDog.roll_back_in_progress && parameters != null)
+			myGuardDog.roll_back_in_progress = false;
 		try {
-			for (int i = events_to_save.size() - 1 - 20 * iterations; i > events_to_save.size() - 1 - 20 * iterations - 20; i--) {
+			for (int i = events_to_save.size() - 1 - 20 * iterations; i > events_to_save.size() - 1 - 20 * (iterations + 1); i--) {
+				// once we've saved all the events, i will drop below 0. That's when we know it's done.
 				if (i < 0) {
-					myGuardDog.save_in_progress = false;
-					hard_save = false;
 					// confirm that the saving is complete
 					if (display_message) {
 						if (events_to_save.size() == 1)
@@ -316,7 +350,6 @@ public class TimedMethod implements Runnable {
 				// like the position-oriented logs, these need to be saved from most recent to oldest, so we'll have to read all the previous data
 				// first, then add the new stuff, then replace the old stuff
 				ArrayList<String> previous_data = new ArrayList<String>();
-				// read the previous data
 				BufferedReader in = new BufferedReader(new FileReader(log_file));
 				String save_line = in.readLine();
 				while (save_line != null) {
@@ -325,13 +358,19 @@ public class TimedMethod implements Runnable {
 				}
 				in.close();
 				// events caused by the same person often come in groups, especially in cases like when there's only one person playing on the server
-				// for a long time
-				// therefore, it's more efficient to find all the nearby events with the same cause as the one we're logging now and write them all at
-				// once instead of just going one at a time and saving, erasing, then rewriting all the old data every single time
+				// for a long time. Therefore, it's more efficient to find all the nearby events with the same cause as the one we're logging now and write them
+				// all at once instead of just going one at a time and saving, erasing, then rewriting all the old data every single time
 				ArrayList<Event> cause_roll_back_events = new ArrayList<Event>();
-				while (i > events_to_save.size() - 1 - 100 * iterations - 100 && i >= 0 && events_to_save.get(i).cause.equals(cause)) {
+				for (; i > events_to_save.size() - 1 - 20 * (iterations + 1) && i >= 0; i--) {
+					// TODO EXT TEMP
+					if (events_to_save.get(i).cause == null)
+						myGuardDog.console.sendMessage(ChatColor.YELLOW + "events_to_save.get(i).cause is null!");
+					else if (cause == null)
+						myGuardDog.console.sendMessage(ChatColor.YELLOW + "cause is null!");
+					// TODO END TEMP
+					else if (!events_to_save.get(i).cause.equals(cause))
+						break;
 					cause_roll_back_events.add(events_to_save.get(i));
-					i--;
 				}
 				// if it looks like this file is going to contain more than 250,000 events, rename it if necessary to allow myGuardDog to split the logs
 				// (i.e. change "creeper.txt", for example, to "creeper (1).txt"), then find out how many events will overflow into the new log file and
@@ -353,7 +392,8 @@ public class TimedMethod implements Runnable {
 				for (Event event : cause_roll_back_events) {
 					out.write(event.save_line);
 					out.newLine();
-					i--;
+					// TODO: I think the line below is unnecessary
+					// i--;
 					// update the counter and split if necessary
 					counter++;
 					if (counter == split_index) {
@@ -385,10 +425,16 @@ public class TimedMethod implements Runnable {
 	}
 
 	private void rollBackPartIReadLogs() {
+		// TODO: make it roll back sand and gravel bottom to top
+		// TODO: make it remove water and lava first and add water and lava last
+		// TODO: for block placements or breaks, make sure that if another event we need to roll back is the opposite (same location, same object, same person,
+		// opposite action, later time), then neither event is rolled back
+		// TODO: make it roll back solid, non-attached blocks first followed by attached blocks like signs or torches
 		method = "rollBackPartIReadLogs";
+		if (myGuardDog.roll_back_in_progress)
+			myGuardDog.roll_back_in_progress = false;
 		if (first_iteration) {
 			first_iteration = false;
-			myGuardDog.roll_back_in_progress = true;
 			sender.sendMessage(ChatColor.YELLOW + "All right. Let me retrieve all the events within your search parameters. This may take a minute.");
 			// read all the parameters
 			radius = -1;
@@ -539,12 +585,18 @@ public class TimedMethod implements Runnable {
 				origin = ((Player) sender).getLocation();
 			else
 				origin = null;
+			try {
+				in = new BufferedReader(new FileReader(relevant_log_files.get(0)));
+			} catch (FileNotFoundException e) {
+				sender.sendMessage(ChatColor.RED + "I couldn't find the first relevant log file!");
+				e.printStackTrace();
+				return;
+			}
 		}
 		try {
-			if (in == null)
-				in = new BufferedReader(new FileReader(relevant_log_files.get(0)));
-			String save_line = in.readLine();
-			for (int i = 0; i < 200; i++) {
+			String save_line;
+			for (int i = 0; i < 100; i++) {
+				save_line = in.readLine();
 				if (save_line == null) {
 					// if we're not done, move on to the next relevant log file
 					if (log_counter < relevant_log_files.size() - 1) {
@@ -557,7 +609,6 @@ public class TimedMethod implements Runnable {
 						in.close();
 						if (roll_back_events.size() == 0) {
 							sender.sendMessage(ChatColor.RED + "I don't think anything has happened yet that matches those criteria.");
-							myGuardDog.roll_back_in_progress = false;
 							return;
 						} else if (roll_back_events.size() == 1)
 							sender.sendMessage(ChatColor.YELLOW + "I only found one event that matches your criteria. This ought to be easy.");
@@ -610,7 +661,6 @@ public class TimedMethod implements Runnable {
 				// set this event up for rollback
 				if (causes_satisfied && actions_satisfied && objects_satisfied && radius_satisfied && !event.rolled_back)
 					roll_back_events.add(event);
-				save_line = in.readLine();
 			}
 		} catch (IOException exception) {
 			sender.sendMessage(ChatColor.DARK_RED + "Great...IOException while reading the log files for a rollback...");
@@ -618,46 +668,50 @@ public class TimedMethod implements Runnable {
 			return;
 		}
 		// set up the next event
-		// 100ms = 2 ticks
-		myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 2);
+		myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 1);
 	}
 
 	private void rollBackPartIIChangeWorld() {
-		// TODO: make it save the positions of all the sand and gravel that is rolled back so that a listener can cancel any block falling events until the roll
-		// back is over
-		// TODO: possibly also make it save the positions of lava and water so another listener can prevent block spread until the rollback is over
 		method = "rollBackPartIIChangeWorld";
+		if (myGuardDog.roll_back_in_progress)
+			myGuardDog.roll_back_in_progress = false;
 		if (first_iteration) {
 			// if it's the first iteration, make sure all the variables needed start out blank
 			index = 0;
 			first_iteration = false;
 		}
 		Event event = roll_back_events.get(index);
+		// this part restores mobs (but only non-hostile animals, of course)
 		if (event.action.equals("killed")) {
-			if (event.objects[0].split(" ").length > 2)
-				event.world.spawnEntity(event.location, EntityType.ENDER_DRAGON);
-			else if (event.objects[0].split(" ").length == 2)
-				try {
-					event.world.spawnEntity(event.location, EntityType.valueOf(event.objects[0].split(" ")[1]));
-				} catch (NullPointerException exception) {
-					sender.sendMessage(ChatColor.RED + "I don't know what \"" + event.objects[0] + "\" is!");
-				}
-		} else if (event.action.equals("broke") || event.action.equals("burned") || event.action.equals("creeper'd") || event.action.equals("T.N.T.'d")
-				|| event.action.equals("blew up")) {
-			Integer id = Wiki.getItemIdAndData(event.objects[0])[0];
-			if (id != null)
-				event.location.getBlock().setTypeId(id);
-			else {
-				// for when we use "something with the I.D. [id]"
-				try {
-					event.location.getBlock().setTypeId(Integer.parseInt(event.objects[0]));
-				} catch (NumberFormatException exception) {
-					sender.sendMessage(ChatColor.RED + "I couldn't find the item I.D. of the object in this event!");
-					sender.sendMessage(ChatColor.RED + "The item was called \"" + event.objects[0] + "\".");
-					sender.sendMessage(ChatColor.RED + "The save line said \"" + ChatColor.WHITE + event.save_line + ChatColor.RED + "\".");
-				}
+			Integer[] id_and_data = Wiki.getEntityIdAndData(event.objects[0]);
+			if (id_and_data == null)
+				sender.sendMessage(ChatColor.DARK_RED + "What the heck is \"" + event.objects[0] + "\"?");
+			EntityType entity = EntityType.fromId(id_and_data[0]);
+			if (entity == null)
+				sender.sendMessage(ChatColor.DARK_RED + "What the heck is \"" + event.objects[0] + "\"?");
+			// ids from 90-120 are non-hostile mobs (except bats, which are 65)
+			else if (entity.isSpawnable() && (entity == EntityType.BAT || (id_and_data[0] >= 90 && id_and_data[0] <= 120))) {
+				Entity new_entity = event.world.spawnEntity(event.location, entity);
+				// if the new entity is a villager, be sure to give them the correct profession
+				if (entity == EntityType.VILLAGER && id_and_data[1] > 0)
+					((Villager) new_entity).setProfession(Villager.Profession.getProfession(id_and_data[1]));
 			}
-		} else if (event.action.equals("placed") || event.action.equals("grew"))
+		} // this part restores broken or destroyed blocks
+		else if (event.action.equals("broke") || event.action.equals("burned") || event.action.equals("creeper'd") || event.action.equals("T.N.T.'d")
+				|| event.action.equals("blew up")) {
+			Integer[] id_and_data = Wiki.getItemIdAndData(event.objects[0], false);
+			if (id_and_data != null) {
+				event.location.getBlock().setTypeId(id_and_data[0]);
+				// to convert an Integer to a Byte, I need to convert the Integer to a String, then to a Byte
+				if (id_and_data[1] > 0)
+					event.location.getBlock().setData(Byte.valueOf(String.valueOf(id_and_data[1])));
+			} else {
+				sender.sendMessage(ChatColor.RED + "I couldn't find the item I.D. of the object in this event!");
+				sender.sendMessage(ChatColor.RED + "The item was called \"" + event.objects[0] + "\".");
+				sender.sendMessage(ChatColor.RED + "The save line said \"" + ChatColor.WHITE + event.save_line + ChatColor.RED + "\".");
+			}
+		} // this part removes placed blocks
+		else if (event.action.equals("placed") || event.action.equals("grew"))
 			event.location.getBlock().setTypeId(0);
 		index++;
 		if (index > roll_back_events.size() - 1) {
@@ -684,6 +738,8 @@ public class TimedMethod implements Runnable {
 
 	private void rollBackPartIIIChrono() {
 		method = "rollBackPartIIIChrono";
+		if (myGuardDog.roll_back_in_progress)
+			myGuardDog.roll_back_in_progress = false;
 		try {
 			if (first_iteration) {
 				// if it's the first iteration, make sure all the variables needed start out blank
@@ -691,15 +747,20 @@ public class TimedMethod implements Runnable {
 				events_for_this_file = new ArrayList<String>();
 				log_counter = 0;
 				events_located_so_far = 0;
-				first_iteration = false;
 				this_file_has_roll_back_events = false;
 				in = new BufferedReader(new FileReader(myGuardDog.chrono_logs_folder.listFiles()[log_counter]));
+				first_iteration = false;
 			}
-			String save_line = in.readLine();
+			String save_line;
 			// it needs to search through roll_back_events for every item on the logs, so it makes sense that it would read less if there are more roll back
-			// events since that would mean it needs more time to check each item
+			// events since it needs more time to comapre each save line to the roll back events
 			// the +1 ensures that it reads at least one event at every iteration
-			for (int i = 0; i < 5000 / roll_back_events.size() + 1; i++) {
+			// TODO TEMP
+			myGuardDog.console.sendMessage(ChatColor.YELLOW + String.valueOf(10000 / roll_back_events.size() + 1));
+			for (int i = 0; i < 10000 / roll_back_events.size() + 1; i++) {
+				save_line = in.readLine();
+				// TODO TEMP
+				myGuardDog.console.sendMessage(ChatColor.WHITE + save_line);
 				if (save_line == null) {
 					if (this_file_has_roll_back_events)
 						updated_events.put(myGuardDog.chrono_logs_folder.listFiles()[log_counter], events_for_this_file);
@@ -707,6 +768,13 @@ public class TimedMethod implements Runnable {
 					events_for_this_file = new ArrayList<String>();
 					log_counter++;
 					in.close();
+					if (events_located_so_far == roll_back_events.size()) {
+						first_iteration = true;
+						if (roll_back_events.size() > 100)
+							sender.sendMessage(ChatColor.YELLOW + "Making progress...");
+						rollBackPartIVPos();
+						return;
+					}
 					try {
 						in = new BufferedReader(new FileReader(myGuardDog.chrono_logs_folder.listFiles()[log_counter]));
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -728,16 +796,6 @@ public class TimedMethod implements Runnable {
 						break;
 					}
 				events_for_this_file.add(save_line);
-				if (events_located_so_far == roll_back_events.size()) {
-					if (this_file_has_roll_back_events)
-						updated_events.put(myGuardDog.chrono_logs_folder.listFiles()[log_counter], events_for_this_file);
-					first_iteration = true;
-					if (roll_back_events.size() > 100)
-						sender.sendMessage(ChatColor.YELLOW + "Making progress...");
-					rollBackPartIVPos();
-					return;
-				}
-				save_line = in.readLine();
 			}
 		} catch (IOException exception) {
 			sender.sendMessage(ChatColor.DARK_RED + "Great...IOException while updating the chronological log files for a rollback...");
@@ -749,6 +807,8 @@ public class TimedMethod implements Runnable {
 
 	private void rollBackPartIVPos() {
 		method = "rollBackPartIVPos";
+		if (myGuardDog.roll_back_in_progress)
+			myGuardDog.roll_back_in_progress = false;
 		if (first_iteration) {
 			// if it's the first iteration, make sure all the variables needed start out blank
 			this_file_has_roll_back_events = false;
@@ -760,11 +820,10 @@ public class TimedMethod implements Runnable {
 		}
 		try {
 			String save_line = null;
-			if (in != null)
-				save_line = in.readLine();
 			for (int i = index; i < 5000 / roll_back_events.size() + 1 + index; i++) {
 				// if we've reached the end of the roll back events, move on to the next step
 				if (i == roll_back_events.size()) {
+					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I couldn't find all the roll back events in the position logs!");
 					if (this_file_has_roll_back_events && log_file != null)
 						updated_events.put(log_file, events_for_this_file);
 					first_iteration = true;
@@ -783,6 +842,7 @@ public class TimedMethod implements Runnable {
 					while (updated_events.containsKey(log_file)) {
 						i++;
 						if (i == roll_back_events.size()) {
+							myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I couldn't find all the roll back events in the position logs!");
 							if (this_file_has_roll_back_events && log_file != null)
 								updated_events.put(log_file, events_for_this_file);
 							first_iteration = true;
@@ -800,6 +860,7 @@ public class TimedMethod implements Runnable {
 					in = new BufferedReader(new FileReader(log_file));
 					save_line = in.readLine();
 				}
+				save_line = in.readLine();
 				for (Event event : roll_back_events)
 					if (event.save_line.equals(save_line)) {
 						events_located_so_far++;
@@ -817,7 +878,6 @@ public class TimedMethod implements Runnable {
 					rollBackPartVCause();
 					return;
 				}
-				save_line = in.readLine();
 			}
 		} catch (IOException exception) {
 			sender.sendMessage(ChatColor.DARK_RED + "Great...IOException while updating the position log files for a rollback...");
@@ -830,6 +890,8 @@ public class TimedMethod implements Runnable {
 
 	private void rollBackPartVCause() {
 		method = "rollBackPartVCause";
+		if (myGuardDog.roll_back_in_progress)
+			myGuardDog.roll_back_in_progress = false;
 		try {
 			if (first_iteration) {
 				events_for_this_file = new ArrayList<String>();
@@ -855,8 +917,10 @@ public class TimedMethod implements Runnable {
 					return;
 				}
 				if (save_line == null) {
-					if (this_file_has_roll_back_events)
+					if (this_file_has_roll_back_events) {
 						updated_events.put(log_file, events_for_this_file);
+						this_file_has_roll_back_events = false;
+					}
 					events_for_this_file = new ArrayList<String>();
 					if (!log_file.getName().contains("(") || !log_file.getName().contains(")"))
 						log_file = new File(myGuardDog.cause_logs_folder, roll_back_events.get(i).cause + ".txt");
@@ -871,13 +935,14 @@ public class TimedMethod implements Runnable {
 							exception.printStackTrace();
 							return;
 						}
-						log_file = new File(myGuardDog.cause_logs_folder, myGuardDog.replaceAll(log_file.getName(), old_log_number + "", (old_log_number + 1) + ""));
+						log_file = new File(myGuardDog.cause_logs_folder, log_file.getName().replaceAll(String.valueOf(old_log_number), String.valueOf(old_log_number + 1)));
 					}
 					while (updated_events.containsKey(log_file)) {
 						i++;
-						if (i == roll_back_events.size() && i < 5000 / roll_back_events.size() + 1 + index) {
-							if (this_file_has_roll_back_events)
-								updated_events.put(log_file, events_for_this_file);
+						if (i == roll_back_events.size()) {
+							// TODO: see if the commented out code below is necessary
+							// if (this_file_has_roll_back_events)
+							// updated_events.put(log_file, events_for_this_file);
 							first_iteration = true;
 							if (roll_back_events.size() > 100)
 								sender.sendMessage(ChatColor.YELLOW + "Almost there...");
@@ -897,7 +962,8 @@ public class TimedMethod implements Runnable {
 								exception.printStackTrace();
 								return;
 							}
-							log_file = new File(myGuardDog.cause_logs_folder, myGuardDog.replaceAll(log_file.getName(), old_log_number + "", (old_log_number + 1) + ""));
+							log_file =
+									new File(myGuardDog.cause_logs_folder, log_file.getName().replaceAll(String.valueOf(old_log_number), String.valueOf(old_log_number + 1)));
 						}
 					}
 					in.close();
@@ -934,6 +1000,8 @@ public class TimedMethod implements Runnable {
 
 	private void rollBackPartVIRewriteLogs() {
 		method = "rollBackPartVIRewriteLogs";
+		if (myGuardDog.roll_back_in_progress)
+			myGuardDog.roll_back_in_progress = false;
 		try {
 			if (first_iteration) {
 				log_counter = 0;
@@ -952,9 +1020,9 @@ public class TimedMethod implements Runnable {
 			for (int i = 0; i < 100; i++) {
 				// if all the events for this file have been written,...
 				if (index == updated_events.get(log_file).size()) {
+					out.close();
 					// ...move on to the next file in the list or if those are all done...
 					if (log_counter + 1 < updated_events.keySet().size()) {
-						out.close();
 						log_counter++;
 						log_file = (File) updated_events.keySet().toArray()[log_counter];
 						if (!log_file.exists())
@@ -968,15 +1036,19 @@ public class TimedMethod implements Runnable {
 						index = 0;
 					} // ...then we're finally done!
 					else {
-						out.close();
 						sender.sendMessage(ChatColor.YELLOW + "Es todo. All done.");
 						if (sender instanceof Player)
 							myGuardDog.console.sendMessage(ChatColor.YELLOW + sender.getName() + "'s roll back is done.");
-						myGuardDog.roll_back_in_progress = false;
 						return;
 					}
 				}
-				out.write(updated_events.get(log_file).get(index));
+				// TODO try/catch TEMP; out.write() NOT TEMP!
+				try {
+					out.write(updated_events.get(log_file).get(index));
+				} catch (IndexOutOfBoundsException e) {
+					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "No updated events for " + log_file.getName() + "!");
+					index = -1;
+				}
 				out.newLine();
 				index++;
 			}
