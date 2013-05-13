@@ -217,7 +217,7 @@ public class Wiki {
 			{ { "emerald ore", "some emerald ore" } },
 			{ { "Ender Chests", "an Ender Chest", "Enderchests" } },
 			{ { "tripwire hooks", "a tripwire hook", "tripwire mechanisms", "trip wire hooks", "trip wire mechanisms" } },
-			{ { "tripwire", "a tripwire", "trip wire" } },
+			{ { "tripwire", "some tripwire", "trip wire" } },
 			{ { "emerald blocks", "an emerald block", "blocks of emerald", "blocks of emeralds" } },
 			{ { "spruce stairs", "some spruce stairs", "spruce wood stairs", "spruce steps", "spruce wood steps" } },
 			{ { "birch stairs", "some birch stairs", "birch wood stairs", "birch steps", "birch wood steps" } },
@@ -591,7 +591,7 @@ public class Wiki {
 							{ "non-charged creepers", "a non-charged creeper", "unpowered regular normal average run-of-the-mill exploding explosive green penis monsters" },
 							{ "charged creepers", "a charged creeper", "lightninged struck exploding green penis monsters",
 									"lightninged struck explosive green penis monsters" } },
-					{ { "skeletons", "a skeleton", "skeles", "skeleton archers" },
+					{ { "skeletons", "a skeleton", "skeles", "skeleton archers" }, { "skeletons", "a skeleton", "skeles", "skeleton archers" },
 							{ "Wither skeletons", "a Wither skeleton", "Wither skeles", "Wither skeletons", "swordsman skeletons", "swordsman skeles" } },
 					{ { "spiders", "a spider", "giant spiders" } },
 					{ { "giants", "a giant", "giant zombies" } },
@@ -1380,7 +1380,7 @@ public class Wiki {
 			data = ((Painting) entity).getAttachedFace().ordinal();
 		else if (entity.getType() == EntityType.ITEM_FRAME)
 			data = ((ItemFrame) entity).getAttachedFace().ordinal();
-		return getEntityName(entity.getEntityId(), data, give_data_suffix, singular);
+		return getEntityName(entity.getType().getTypeId(), data, give_data_suffix, singular);
 	}
 
 	public static String getRecipe(String item_name) {

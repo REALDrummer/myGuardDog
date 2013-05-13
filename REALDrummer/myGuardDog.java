@@ -15,6 +15,7 @@ import javax.swing.Timer;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.block.Block;
@@ -49,6 +50,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.vehicle.VehicleMoveEvent;
 import org.bukkit.event.world.StructureGrowEvent;
 import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.plugin.Plugin;
@@ -75,7 +77,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	private static HashMap<String, String[]> players_questioned_about_rollback = new HashMap<String, String[]>();
 	// inspecting_players=new HashMap<a player using the inspector, Object[] {Location of the last block clicked, int of the number of times the block}>
 	private static HashMap<String, Object[]> inspecting_players = new HashMap<String, Object[]>();
-	public static HashMap<UUID, String> primed_TNT_causes = new HashMap<UUID, String>();
+	public static HashMap<UUID, String> TNT_causes = new HashMap<UUID, String>();
 	private static ArrayList<String> confirmed_gamemode_changers = new ArrayList<String>(), halted_players = new ArrayList<String>(), muted_players = new ArrayList<String>();
 	private static Timer autosave_timer;
 
@@ -527,15 +529,52 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	@EventHandler(priority = EventPriority.HIGH)
+	public void trackTNTMinecartActivations(VehicleMoveEvent event) {
+		if (!(event.getVehicle().getType() == EntityType.MINECART_TNT && !TNT_causes.containsKey(event.getVehicle().getUniqueId())
+				&& event.getTo().getBlock().getType() == Material.ACTIVATOR_RAIL && event.getTo().getBlock().isBlockIndirectlyPowered()))
+			return;
+		String cause = null;
+		// next, look through the events ArrayList for one where someone placed T.N.T. at or above the location of the explosion
+		for (int i = events.size() - 1; i >= 0; i--)
+			if (events.get(i).action.equals("placed") && events.get(i).objects[0].startsWith("an activator rail") && events.get(i).x == event.getTo().getBlockX()
+					&& events.get(i).z == event.getTo().getBlockZ() && events.get(i).world.equals(event.getTo().getWorld())) {
+				cause = events.get(i).cause;
+				break;
+			}
+		if (cause == null) {
+			// if it wasn't a recent event, look through the logged events
+			File log_file =
+					new File(position_logs_folder, "(" + event.getTo().getBlockX() + ", " + event.getTo().getBlockZ() + ") "
+							+ event.getTo().getWorld().getWorldFolder().getName() + ".txt");
+			if (log_file.exists()) {
+				try {
+					BufferedReader in = new BufferedReader(new FileReader(log_file));
+					String save_line = in.readLine();
+					while (save_line != null) {
+						Event placement_event = new Event(save_line);
+						if (placement_event.action.equals("placed") && placement_event.objects[0].startsWith("an activator rail")
+								&& placement_event.x == event.getTo().getBlockX() && placement_event.z == event.getTo().getBlockZ()
+								&& placement_event.world.equals(event.getTo().getWorld())) {
+							cause = placement_event.cause;
+							break;
+						}
+						save_line = in.readLine();
+					}
+				} catch (IOException exception) {
+					console.sendMessage(ChatColor.DARK_RED + "I got an IOException while trying to read the " + log_file.getName()
+							+ " file to find the cause of the recent T.N.T. minecart explosion!");
+					exception.printStackTrace();
+				}
+			}
+		}
+		if (cause != null)
+			TNT_causes.put(event.getVehicle().getUniqueId(), cause);
+	}
+
+	@EventHandler(priority = EventPriority.HIGH)
 	public void logExplosions(EntityExplodeEvent event) {
 		// identify the cause of the event
-		// TODO EXT TEMP
-		console.sendMessage(ChatColor.YELLOW + "entity I.D. = " + event.getEntity().getEntityId());
-		console.sendMessage(ChatColor.YELLOW + "T.N.T. minecart I.D. = " + Wiki.getEntityIdAndDataString("a T.N.T. minecart"));
-		// TODO END TEMP
 		String cause = Wiki.getEntityName(event.getEntity(), true, true), action = "blew up";
-		// TODO TEMP
-		console.sendMessage(ChatColor.YELLOW + "cause = \"" + cause + "\"");
 		if (event.getEntityType() == EntityType.CREEPER) {
 			double distance = 0;
 			for (Entity entity : event.getEntity().getNearbyEntities(6, 6, 6))
@@ -551,23 +590,22 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 									+ Math.pow(event.getEntity().getLocation().getY() - entity.getLocation().getY(), 2)
 									+ Math.pow(event.getEntity().getLocation().getZ() - entity.getLocation().getZ(), 2));
 				}
-		} else if (event.getEntityType() == EntityType.PRIMED_TNT || event.getEntityType() == EntityType.MINECART_TNT) {
-			// TODO: figure out a way to see who placed a T.N.T. minecart
+		} else if (event.getEntityType() == EntityType.PRIMED_TNT) {
 			// try to find out who placed the T.N.T.
-			// first, see if another explosion caused the ignition of this and if so, it would have been logged
-			if (primed_TNT_causes.get(event.getEntity().getUniqueId()) != null) {
-				cause = primed_TNT_causes.get(event.getEntity().getUniqueId());
-				primed_TNT_causes.remove(event.getEntity().getUniqueId());
+			// first, see if another explosion caused the ignition of this one
+			if (TNT_causes.get(event.getEntity().getUniqueId()) != null) {
+				cause = TNT_causes.get(event.getEntity().getUniqueId());
+				TNT_causes.remove(event.getEntity().getUniqueId());
 			} else
 				// next, look through the events ArrayList for one where someone placed T.N.T. at or above the location of the explosion
 				for (int i = events.size() - 1; i >= 0; i--)
 					if (events.get(i).action.equals("placed") && events.get(i).objects[0].equals("some T.N.T.") && events.get(i).x - 2 <= event.getLocation().getBlockX()
 							&& events.get(i).x + 2 >= event.getLocation().getBlockX() && events.get(i).z - 2 <= event.getLocation().getBlockZ()
-							&& events.get(i).z + 2 >= event.getLocation().getBlockZ()) {
+							&& events.get(i).z + 2 >= event.getLocation().getBlockZ() && events.get(i).world.equals(event.getLocation().getWorld())) {
 						cause = events.get(i).cause;
 						break;
 					}
-			if (cause.equals("some T.N.T.") || cause.equals("a T.N.T. minecart")) {
+			if (cause.equals("some T.N.T.")) {
 				// if it wasn't a recent event, look through the logged events
 				File log_file =
 						new File(position_logs_folder, "(" + event.getLocation().getBlockX() + ", " + event.getLocation().getBlockZ() + ") "
@@ -580,7 +618,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 							Event placement_event = new Event(save_line);
 							if (placement_event.action.equals("placed") && placement_event.objects[0].equals("some T.N.T.")
 									&& placement_event.x - 2 <= event.getLocation().getBlockX() && placement_event.x + 2 >= event.getLocation().getBlockX()
-									&& placement_event.z - 2 <= event.getLocation().getBlockZ() && placement_event.z + 2 >= event.getLocation().getBlockZ()) {
+									&& placement_event.z - 2 <= event.getLocation().getBlockZ() && placement_event.z + 2 >= event.getLocation().getBlockZ()
+									&& placement_event.world.equals(event.getLocation().getWorld())) {
 								cause = placement_event.cause;
 								break;
 							}
@@ -595,10 +634,18 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					}
 				}
 			}
-			if (!cause.equals("some T.N.T.") && !cause.equals("a T.N.T. minecart"))
+			if (!cause.equals("some T.N.T."))
 				action = "T.N.T.'d";
 			else
 				console.sendMessage(ChatColor.RED + "I couldn't find the person who caused this T.N.T. explosion!");
+		} else if (event.getEntityType() == EntityType.MINECART_TNT) {
+			// try to find out who placed the activator rail. When a T.N.T. minecart is activated, it's recorded in TNT_causes.
+			if (TNT_causes.get(event.getEntity().getUniqueId()) != null) {
+				cause = TNT_causes.get(event.getEntity().getUniqueId());
+				TNT_causes.remove(event.getEntity().getUniqueId());
+				action = "T.N.T.-minecarted";
+			} else
+				console.sendMessage(ChatColor.RED + "I couldn't find the person who caused this T.N.T. minecart explosion!");
 		}
 		// organize the block list so that it saves the events from top to bottom so that when you roll it back, it will repair the bottom first, which is
 		// important with falling blocks
@@ -626,7 +673,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				server.getScheduler().scheduleSyncDelayedTask(mGD, new TimedMethod(console, "track T.N.T.", block.getLocation(), cause), 1);
 		// through experimentation, I discovered that if an entity explodes and the explosion redirects a PRIMED_TNT Entity, it actually replaces the old
 		// PRIMED_TNT Entity with a new one going a different direction. That's important because it changes the UUID of the PRIMED_TNT and I use that to track
-		// the explosions with the primed_TNT_causes HashMap. Therefore, here, I need to make it track any PRIMED_TNT Entities inside the blast radius
+		// the explosions with the TNT_causes HashMap. Therefore, here, I need to make it track any PRIMED_TNT Entities inside the blast radius
 		// find any PRIMED_TNT Entities within the blast radius (which maxes out at 7 for Minecraft T.N.T. in air)
 		for (Entity entity : event.getLocation().getWorld().getEntities())
 			// max distance = 7; max distance squared = 49

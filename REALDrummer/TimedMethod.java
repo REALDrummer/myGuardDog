@@ -16,7 +16,6 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 
@@ -72,13 +71,18 @@ public class TimedMethod implements Runnable {
 		else if (method.equals("track Enderman placements"))
 			trackEndermanPlacements((Block) os[0]);
 		else if (method.equals("save the logs") || method.equals("hard save")) {
+			first_iteration = true;
 			display_message = (Boolean) os[0];
-			if (method.equals("hard save"))
+			if (method.equals("hard save")) {
 				hard_save = true;
-			myGuardDog.save_in_progress = true;
-			method = "check for save";
-			myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 3);
+				saveTheLogsPartIChrono();
+			} else {
+				myGuardDog.save_in_progress = true;
+				method = "check for save";
+				myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD, this, 3);
+			}
 		} else if (method.equals("roll back")) {
+			first_iteration = true;
 			display_message = false;
 			parameters = (String[]) os[0];
 			myGuardDog.roll_back_in_progress = true;
@@ -90,8 +94,12 @@ public class TimedMethod implements Runnable {
 			if (!hard_save && !myGuardDog.save_in_progress)
 				sender.sendMessage(ChatColor.RED
 						+ "This is not insubordination, but I am afraid that a save is already in progress. Therefore, I cannot start a new one. This current save must terminate first.");
-			else
+			// if it's a hard save and there's already a save in progress, hard_save will already be set to true, which wil make the rest of the save a hard
+			// save anyway, so there's no need to do anything here
+			else if (!hard_save) {
+				first_iteration = true;
 				saveTheLogsPartIChrono();
+			}
 		} else if (method.equals("check for roll back")) {
 			// oddly enough, because saving the logs constantly changes roll_back_in_progress to false, if roll_back_in_progress is true, it means a roll back
 			// is NOT in progress (and the same applies to save_in_progress with relation to saving)
@@ -129,7 +137,7 @@ public class TimedMethod implements Runnable {
 					&& (new_primed_TNT == null || new_primed_TNT.getLocation().distanceSquared(location) > entity.getLocation().distanceSquared(location)))
 				new_primed_TNT = entity;
 		if (new_primed_TNT != null)
-			myGuardDog.primed_TNT_causes.put(new_primed_TNT.getUniqueId(), cause);
+			myGuardDog.TNT_causes.put(new_primed_TNT.getUniqueId(), cause);
 	}
 
 	private void trackEndermanPlacements(Block block) {
@@ -163,9 +171,7 @@ public class TimedMethod implements Runnable {
 				// finalize the list of events to save so that new events won't get saved later in this process and not in earlier parts in chrono logs and such
 				for (Event event : myGuardDog.events)
 					events_to_save.add(event);
-				// remove the events from "events" that are now finalized in events_to_save
-				for (int j = 0; j < events_to_save.size(); j++)
-					myGuardDog.events.remove(0);
+				myGuardDog.events = new ArrayList<Event>();
 				// cancel the save if there are no events to save
 				if (events_to_save.size() == 0) {
 					if (display_message)
@@ -192,43 +198,58 @@ public class TimedMethod implements Runnable {
 				// this part attempts to make sure each log file has 250,000 events max, then splits into a new log file
 				// the split index is the index of the last event that will be in the current log; it's -1 if there's no need to split the log file
 				split_index = -1;
-				// by my calculations, it takes about 111B to save one event, so here I used that to estimate the number of events already in the log file
-				// add 1 then (int) it to round up every time
-				if ((int) (log_file.length() / 111 + 1) + events_to_save.size() > 250000) {
-					split_index = (int) (250000 - log_file.length() / 111 - 1);
-					log_file.renameTo(new File(myGuardDog.chrono_logs_folder, log_file.getName().split(" - ")[0] + " - " + events_to_save.get(split_index).getTime('\'') + " "
-							+ events_to_save.get(split_index).getDate('-') + ".txt"));
+				// count the number of events already in the file
+				int events_in_this_file = 0;
+				if (log_file.exists()) {
+					BufferedReader in = new BufferedReader(new FileReader(log_file));
+					while (in.readLine() != null)
+						events_in_this_file++;
+					in.close();
 				}
-				// the estimated time = 9 ticks for every 100 events (1 for chrono logging, 3 for position logging, and 5 for cause logging) converted to
-				// milliseconds
-				if (events_to_save.size() > 100)
+				if (events_in_this_file + events_to_save.size() > 250000) {
+					split_index = 250000 - events_in_this_file;
+					final File new_log_file =
+							new File(myGuardDog.chrono_logs_folder, log_file.getName().split(" - ")[0] + " - " + events_to_save.get(split_index).getTime('\'') + " "
+									+ events_to_save.get(split_index).getDate('-') + ".txt");
+					if (log_file.exists())
+						log_file.renameTo(new_log_file);
+					log_file = new_log_file;
+				}
+				// the estimated time = 10 ticks for every 100 events (1 for chrono logging, 4 for position logging, and 5 for cause logging) converted to ms
+				// minimum events to take 1 second = 1s * 20ticks/s * (100 events / 10 ticks) = 200 events
+				if (events_to_save.size() > 200)
 					sender.sendMessage(ChatColor.YELLOW + "All right. Just give me "
-							+ myGuardDog.translateTimeInmsToString(15 * ((int) (events_to_save.size() / 100) + 1) / 20 * 1000, true) + " to save your files.");
+							+ myGuardDog.translateTimeInmsToString(10 * events_to_save.size() / 100 / 20 * 1000, true) + " to save your files.");
 			}
 			BufferedWriter out = new BufferedWriter(new FileWriter(log_file, true));
-			for (int i = iterations * 100; i < iterations * 100 + 100; i++) {
+			for (int i = 100 * iterations; i < 100 * (iterations + 1); i++) {
 				if (i == events_to_save.size()) {
 					out.close();
-					if (events_to_save.size() > 100)
+					if (events_to_save.size() > 200)
 						sender.sendMessage(ChatColor.YELLOW + "Making progress...");
 					// reset iterations for saveTheLogsPartIIPos() to use
-					iterations = 0;
+					first_iteration = true;
 					saveTheLogsPartIIPos();
 					return;
 				}
+				// if it's the first line of a file or the first
 				out.write(events_to_save.get(i).save_line);
-				out.newLine();
 				// split the files if necessary
-				if (i == split_index && split_index < events_to_save.size() - 1)
-					if (events_to_save.size() - split_index < 250000)
+				if (i != split_index)
+					out.newLine();
+				else {
+					out.close();
+					if (events_to_save.size() - split_index <= 250000)
 						log_file =
 								new File(myGuardDog.chrono_logs_folder, events_to_save.get(i + 1).getTime('\'') + " " + events_to_save.get(i + 1).getDate('-') + " - now.txt");
 					else {
 						split_index = split_index + 250000;
 						log_file =
 								new File(myGuardDog.chrono_logs_folder, events_to_save.get(i + 1).getTime('\'') + " " + events_to_save.get(i + 1).getDate('-') + " - "
-										+ events_to_save.get(split_index).getTime('\'') + events_to_save.get(split_index).getDate('-') + ".txt");
+										+ events_to_save.get(split_index - 1).getTime('\'') + " " + events_to_save.get(split_index - 1).getDate('-') + ".txt");
 					}
+					out = new BufferedWriter(new FileWriter(log_file, true));
+				}
 			}
 			out.close();
 		} catch (IOException exception) {
@@ -245,17 +266,21 @@ public class TimedMethod implements Runnable {
 
 	private void saveTheLogsPartIIPos() {
 		method = "saveTheLogsPartIIPos";
+		if (first_iteration) {
+			iterations = 0;
+			first_iteration = false;
+		}
 		if (myGuardDog.save_in_progress)
 			myGuardDog.save_in_progress = false;
 		if (myGuardDog.roll_back_in_progress && parameters != null)
 			myGuardDog.roll_back_in_progress = false;
 		try {
-			for (int i = iterations * 25; i < iterations * 25 + 25; i++) {
-				if (i == events_to_save.size()) {
-					if (events_to_save.size() > 100)
+			for (int i = 25 * iterations; i < 25 * (iterations + 1); i++) {
+				if (i >= events_to_save.size()) {
+					if (events_to_save.size() > 200)
 						sender.sendMessage(ChatColor.YELLOW + "I'm over halfway there....");
 					// reset iterations for saveTheLogsPartIIICause() to use
-					iterations = 0;
+					first_iteration = true;
 					saveTheLogsPartIIICause();
 					return;
 				}
@@ -302,14 +327,18 @@ public class TimedMethod implements Runnable {
 
 	private void saveTheLogsPartIIICause() {
 		method = "saveTheLogsPartIIICause";
+		if (first_iteration) {
+			iterations = 0;
+			first_iteration = false;
+		}
 		if (myGuardDog.save_in_progress)
 			myGuardDog.save_in_progress = false;
 		if (myGuardDog.roll_back_in_progress && parameters != null)
 			myGuardDog.roll_back_in_progress = false;
 		try {
-			for (int i = events_to_save.size() - 1 - 20 * iterations; i > events_to_save.size() - 1 - 20 * (iterations + 1); i--) {
+			for (int i = 20 * iterations; i < 20 * (iterations + 1); i++) {
 				// once we've saved all the events, i will drop below 0. That's when we know it's done.
-				if (i < 0) {
+				if (i >= events_to_save.size()) {
 					// confirm that the saving is complete
 					if (display_message) {
 						if (events_to_save.size() == 1)
@@ -361,16 +390,11 @@ public class TimedMethod implements Runnable {
 				// for a long time. Therefore, it's more efficient to find all the nearby events with the same cause as the one we're logging now and write them
 				// all at once instead of just going one at a time and saving, erasing, then rewriting all the old data every single time
 				ArrayList<Event> cause_roll_back_events = new ArrayList<Event>();
-				for (; i > events_to_save.size() - 1 - 20 * (iterations + 1) && i >= 0; i--) {
-					// TODO EXT TEMP
-					if (events_to_save.get(i).cause == null)
-						myGuardDog.console.sendMessage(ChatColor.YELLOW + "events_to_save.get(i).cause is null!");
-					else if (cause == null)
-						myGuardDog.console.sendMessage(ChatColor.YELLOW + "cause is null!");
-					// TODO END TEMP
-					else if (!events_to_save.get(i).cause.equals(cause))
+				for (; i < 20 * (iterations + 1) && i < events_to_save.size(); i++) {
+					if (!events_to_save.get(i).cause.equals(cause))
 						break;
-					cause_roll_back_events.add(events_to_save.get(i));
+					// adding the event at 0 reverses the order of the events, making them log properly in reverse chronological order
+					cause_roll_back_events.add(0, events_to_save.get(i));
 				}
 				// if it looks like this file is going to contain more than 250,000 events, rename it if necessary to allow myGuardDog to split the logs
 				// (i.e. change "creeper.txt", for example, to "creeper (1).txt"), then find out how many events will overflow into the new log file and
@@ -392,8 +416,6 @@ public class TimedMethod implements Runnable {
 				for (Event event : cause_roll_back_events) {
 					out.write(event.save_line);
 					out.newLine();
-					// TODO: I think the line below is unnecessary
-					// i--;
 					// update the counter and split if necessary
 					counter++;
 					if (counter == split_index) {
@@ -548,12 +570,12 @@ public class TimedMethod implements Runnable {
 						}
 					} catch (NumberFormatException exception) {
 						sender.sendMessage(ChatColor.RED + "Oh, yeah. \"" + parameters[i].substring(2)
-								+ "\" comes right after 3, right? Oh, wait. No it's not. In fact, it's not an integer at all. Try again.");
+								+ "\" comes right after 3, right? Oh, wait. No it doesn't. In fact, it's not an integer at all. Try again.");
 						return;
 					}
 			}
 			// find all the relevant log files
-			if (causes.size() > 0) {
+			if (causes.size() > 0)
 				for (String cause : causes) {
 					// find all the relevant log files
 					// start by looking for a file with no numbers (which occur when there are few enough events to write them all in one log file)
@@ -571,7 +593,6 @@ public class TimedMethod implements Runnable {
 						}
 					}
 				}
-			}
 			// if a cause wasn't declared, just get all the chronological logs
 			else
 				for (File log_file : myGuardDog.chrono_logs_folder.listFiles())
@@ -580,7 +601,7 @@ public class TimedMethod implements Runnable {
 				sender.sendMessage(ChatColor.RED + "No events have occurred that fit your parameters!");
 				return;
 			}
-			// read and gather all the relevant events from the log files, allowing a 100ms of space between every 50 events
+			// read and gather all the relevant events from the log files, allowing a 100ms space between every 50 events
 			if (sender instanceof Player)
 				origin = ((Player) sender).getLocation();
 			else
@@ -646,11 +667,17 @@ public class TimedMethod implements Runnable {
 					objects_satisfied = true;
 				else
 					for (String object : objects)
-						for (String event_object : event.objects)
-							if (object.replaceAll(" ", "").contains(event_object)) {
+						for (String event_object : event.objects) {
+							Integer event_id = Wiki.getItemIdAndData(event_object, null)[0], object_id = Wiki.getItemIdAndData(object, null)[0];
+							if (event_id == null && object_id == null) {
+								event_id = Wiki.getEntityIdAndData(event_object)[0];
+								object_id = Wiki.getEntityIdAndData(object)[0];
+							}
+							if (event_id != null && event_id == object_id) {
 								objects_satisfied = true;
 								break;
 							}
+						}
 				// check the radius
 				if (radius == -1)
 					radius_satisfied = true;
@@ -755,12 +782,8 @@ public class TimedMethod implements Runnable {
 			// it needs to search through roll_back_events for every item on the logs, so it makes sense that it would read less if there are more roll back
 			// events since it needs more time to comapre each save line to the roll back events
 			// the +1 ensures that it reads at least one event at every iteration
-			// TODO TEMP
-			myGuardDog.console.sendMessage(ChatColor.YELLOW + String.valueOf(10000 / roll_back_events.size() + 1));
 			for (int i = 0; i < 10000 / roll_back_events.size() + 1; i++) {
 				save_line = in.readLine();
-				// TODO TEMP
-				myGuardDog.console.sendMessage(ChatColor.WHITE + save_line);
 				if (save_line == null) {
 					if (this_file_has_roll_back_events)
 						updated_events.put(myGuardDog.chrono_logs_folder.listFiles()[log_counter], events_for_this_file);
@@ -839,8 +862,12 @@ public class TimedMethod implements Runnable {
 					log_file =
 							new File(myGuardDog.position_logs_folder, "(" + roll_back_events.get(i).x + ", " + roll_back_events.get(i).z + ") "
 									+ roll_back_events.get(i).world.getWorldFolder().getName() + ".txt");
+					// when this method gets a position log file, it updates ALL the events in that file as rolled back that were rolled back, not just the one
+					// that was used to find that file. Therefore, we need to search through the list until we find an event with a location that coordinates
+					// with a position log file that has not been updated yet.
 					while (updated_events.containsKey(log_file)) {
 						i++;
+						// if we've been through all of the roll_back_events, move on to the next part of the roll back
 						if (i == roll_back_events.size()) {
 							myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I couldn't find all the roll back events in the position logs!");
 							if (this_file_has_roll_back_events && log_file != null)
@@ -850,11 +877,19 @@ public class TimedMethod implements Runnable {
 								sender.sendMessage(ChatColor.YELLOW + "I'm over halfway there....");
 							rollBackPartVCause();
 							return;
-						}
-						log_file =
-								new File(myGuardDog.position_logs_folder, "(" + roll_back_events.get(i).x + ", " + roll_back_events.get(i).z + ") "
-										+ roll_back_events.get(i).world.getWorldFolder().getName() + ".txt");
+						} // if we reach the end of the portion to read for this iteration, break this loop and set log_file to null to indicate that the
+							// overarching for loop should break
+						else if (i >= 5000 / roll_back_events.size() + 1 + index) {
+							log_file = null;
+							break;
+						} else
+							log_file =
+									new File(myGuardDog.position_logs_folder, "(" + roll_back_events.get(i).x + ", " + roll_back_events.get(i).z + ") "
+											+ roll_back_events.get(i).world.getWorldFolder().getName() + ".txt");
 					}
+					// if log_file is null, that means it reached the limit for this iteration
+					if (log_file == null)
+						break;
 					if (in != null)
 						in.close();
 					in = new BufferedReader(new FileReader(log_file));
@@ -1044,7 +1079,11 @@ public class TimedMethod implements Runnable {
 				}
 				// TODO try/catch TEMP; out.write() NOT TEMP!
 				try {
-					out.write(updated_events.get(log_file).get(index));
+					if (updated_events.get(log_file).get(index) != null)
+						out.write(updated_events.get(log_file).get(index));
+					// TODO TEMP
+					else
+						myGuardDog.console.sendMessage(ChatColor.RED + "null event!");
 				} catch (IndexOutOfBoundsException e) {
 					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "No updated events for " + log_file.getName() + "!");
 					index = -1;
