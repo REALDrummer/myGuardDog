@@ -25,7 +25,7 @@ public class Event {
 	public boolean rolled_back;
 
 	public Event(String cause, String action, Block object, Boolean in_Creative_Mode) {
-		objects = new String[] { Wiki.getItemName(object.getTypeId(), object.getData(), true, true) };
+		objects = new String[] { myPluginWiki.getItemName(object.getTypeId(), object.getData(), true, true, false) };
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -34,9 +34,9 @@ public class Event {
 		// try getting the item name with the I.D. and data provided
 		if (object instanceof Villager)
 			// villager = 120
-			objects[0] = Wiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true, true);
+			objects[0] = myPluginWiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true, true);
 		else
-			objects[0] = Wiki.getEntityName(object.getType().getTypeId(), (byte) -1, true, true);
+			objects[0] = myPluginWiki.getEntityName(object.getType().getTypeId(), (byte) -1, true, true);
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -45,7 +45,7 @@ public class Event {
 		// derive the names of the items
 		for (int i = 0; i < items.length; i++) {
 			// if items[i].getAmount == 1, we should get the singular item name
-			objects[i] = Wiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true, items[i].getAmount() == 1);
+			objects[i] = myPluginWiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true, items[i].getAmount() == 1, false);
 		}
 		initializeOtherVariables(cause, action, location, in_Creative_Mode);
 	}
@@ -87,35 +87,19 @@ public class Event {
 		// On [month]/[day]/[year] at [hour]:[minute]:[second], [cause] [action] [objects] at ([x], [y], [z]) in
 		// "[world]"(" while in ["Creative"/"Survival"] Mode").
 		save_line = "On " + getDate('/') + " at " + getTime(':');
-		String formatted_action = action, formatted_object = objects[0];
+		String formatted_action = action, formatted_object = myGuardDog.arrayToList(objects);
 		// special action: ...dyed a [color] sheep [new color]...
 		if (action.startsWith("dyed") && objects != null && objects.length == 1) {
 			formatted_action = "dyed";
-			formatted_object = objects[0] + action.substring(4);
+			formatted_object = objects[0] + action.substring(5);
 		}
-		save_line += ", " + cause + " " + formatted_action;
-		if (objects != null) {
-			save_line += " " + formatted_object;
-			// then do the rest of the objects if there are any others
-			if (objects.length > 1)
-				for (int i = 1; i < objects.length; i++) {
-					if (objects.length == 2)
-						save_line += " and ";
-					save_line += " " + objects[i];
-					if (objects.length >= 3)
-						if (i == objects.length - 1)
-							save_line += ", and ";
-						else
-							save_line += ", ";
-				}
-		}
-		save_line += " at (" + x + ", " + y + ", " + z + ") in \"" + world.getName();
+		save_line += ", " + cause + " " + formatted_action + " " + formatted_object + " at (" + x + ", " + y + ", " + z + ") in \"" + world.getName() + "\"";
 		if (in_Creative_Mode == null)
-			save_line += ".\"";
+			save_line += ".";
 		else if (in_Creative_Mode)
-			save_line += "\" while in Creative Mode.";
+			save_line += " while in Creative Mode.";
 		else
-			save_line += "\" while in Survival Mode.";
+			save_line += " while in Survival Mode.";
 		// myGuardDog.console.sendMessage(save_line);
 	}
 
@@ -155,44 +139,17 @@ public class Event {
 			action = "blew up";
 		else if (action.equals("set"))
 			action = "set fire to";
-		else if (action.equals("spread"))
-			action = "spread to";
 		else if (action.equals("dumped"))
 			action = "dumped out";
 		else if (action.equals("stepped"))
 			action = "stepped on";
 		else if (action.equals("picked"))
 			action = "picked up";
+		else if (action.equals("took"))
+			action = "took down";
 		// for three-item object lists:
 		// the "+ 6" = 4 for the seconds time and the comma and space that follow, 1 for the space after the cause, and one for the space after the action
-		objects = new String[1];
-		String object_list = save_line.split(" at ")[1].split(":")[2].substring(cause.length() + action.length() + 6);
-		if (object_list.contains(", and ")) {
-			// for a list of three or more items
-			objects = object_list.split(", ");
-			// eliminate the extra "and " in the last item
-			objects[objects.length - 1] = objects[objects.length - 1].substring(4);
-		}
-		// for two-item object lists:
-		// it's a two-item list if it has (1) an " and " with no "flint and steel" or "book and a quill", (2) it has both "flint and steel" and
-		// "book and a quill", or (3) it has one of those and two or more "and"s
-		// option (1)
-		else if (object_list.contains(" and ") && !object_list.contains("flint and steel") && !object_list.contains("book and a quill"))
-			objects = object_list.split(" and ");
-		// option (2)
-		else if (object_list.contains("flint and steel") && object_list.contains("book and a quill"))
-			objects = new String[] { "flint and steel", "books and quills" };
-		// option (3)
-		else if (object_list.contains("flint and steel") || object_list.contains("book and a quill") && object_list.split(" and ").length > 2) {
-			temp = object_list.split(" and ");
-			if ((temp[0] + " and " + temp[1]).equals("a book and a quill") || (temp[0] + " and " + temp[1]).equals("books and quills")
-					|| (temp[0] + " and " + temp[1]).equals("flint steel"))
-				objects = new String[] { temp[0] + " and " + temp[1], temp[2] };
-			else
-				objects = new String[] { temp[0], temp[1] + " and " + temp[2] };
-		}// exclude events with no objects
-		else if (!object_list.equals(""))
-			objects[0] = object_list;
+		objects = myGuardDog.listToArray(save_line.split(" at ")[1].split(":")[2].substring(cause.length() + action.length() + 6));
 		// special action: ...dyed a [color] sheep [new color]...
 		if (action.equals("dyed") && objects.length == 1) {
 			String wool_color = null;
@@ -225,15 +182,11 @@ public class Event {
 			in_Creative_Mode = false;
 		else
 			in_Creative_Mode = null;
-		String world_name = save_line.split("\"")[1];
-		// if in_Creative_Mode is null, that means the period in the quotes comes from the end of the sentence and is not part of the world's name
-		if (world_name.endsWith(".") && in_Creative_Mode == null)
-			world_name = world_name.substring(0, world_name.length() - 1);
-		world = myGuardDog.server.getWorld(world_name);
+		world = myGuardDog.server.getWorld(save_line.split("\"")[1]);
 		if (world == null) {
 			myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I couldn't find the world in this event!");
 			myGuardDog.console.sendMessage(ChatColor.DARK_RED + "save line: \"" + ChatColor.WHITE + save_line + ChatColor.DARK_RED + "\"");
-			myGuardDog.console.sendMessage(ChatColor.DARK_RED + "This is what I read as the world name: " + ChatColor.WHITE + "\"" + world_name + "\"");
+			myGuardDog.console.sendMessage(ChatColor.DARK_RED + "This is what I read as the world name: " + ChatColor.WHITE + "\"" + save_line.split("\"")[1] + "\"");
 		} else
 			location = new Location(world, x, y, z);
 		if (save_line.endsWith("[rolled back]"))
@@ -248,6 +201,31 @@ public class Event {
 		// "; x=" + x + "; y=" + y + "; z=" + z + "; world: " + world.getWorldFolder().getName() + "; in Creative Mode=" + in_Creative_Mode + "; rolled back="
 		// + rolled_back;
 		// myGuardDog.console.sendMessage(message);
+	}
+
+	// returns a simple answer to say whether an event is a placement event, a removal event, or neither
+	public boolean isPlacement() {
+		if (action.equals("placed") || action.equals("hung") || action.equals("grew") || action.equals("bonemealed") || action.equals("relocated") || action.equals("spread"))
+			return true;
+		else
+			return false;
+	}
+
+	public boolean isRemoval() {
+		if (action.equals("broke") || action.equals("blew up") || action.equals("creeper'd") || action.equals("picked up") || action.equals("burned")
+				|| action.equals("took down") || action.equals("dropped") || action.equals("covered") || action.equals("removed") || action.equals("decayed")
+				|| action.equals("T.N.T.'d"))
+			return true;
+		else
+			return false;
+	}
+
+	// designates whether the Event can be rolled back (like placement events) or not (like stepping on a pressure plate)
+	public boolean canBeRolledBack() {
+		if (action.equals("pressed") || action.equals("stepped on") || action.equals("opened") || action.equals("closed") || action.equals("flipped")
+				|| action.equals("set fire to"))
+			return false;
+		return true;
 	}
 
 	// time and date constructors
@@ -281,5 +259,21 @@ public class Event {
 			else
 				save_line += " [rolled back]";
 		}
+	}
+
+	// overrides
+	@Override
+	public boolean equals(Object event) {
+		if (!(event instanceof Event))
+			return false;
+		else if (save_line.equals(((Event) event).save_line))
+			return true;
+		else
+			return false;
+	}
+
+	@Override
+	public String toString() {
+		return save_line;
 	}
 }

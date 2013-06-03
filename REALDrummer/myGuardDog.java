@@ -3,8 +3,10 @@ package REALDrummer;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,6 +21,8 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -31,10 +35,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
-import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.block.LeavesDecayEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -43,9 +47,9 @@ import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -69,17 +73,19 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					"one ", "1 " }, wool_dye_colors = { "black", "red", "green", "brown", "blue", "purple", "cyan", "light gray", "gray", "pink", "lime", "yellow",
 					"light blue", "magenta", "orange", "white" };
 	public static File logs_folder, chrono_logs_folder, position_logs_folder, cause_logs_folder;
-	public static boolean roll_back_in_progress = false, save_in_progress = false;
+	public static boolean roll_back_in_progress = false, save_in_progress = false, hard_save = false;
 	// player_to_inform_of_[...]: keys=player names and values=admin name or "console" who performed the command
 	private static HashMap<String, GameMode> offline_player_gamemodes = new HashMap<String, GameMode>(), gamemodes_to_change = new HashMap<String, GameMode>();
 	private static HashMap<String, String> players_to_inform_of_halting = new HashMap<String, String>(), players_to_inform_of_muting = new HashMap<String, String>();
 	// players_questioned_about_rollback = new HashMap<player's name or "the console", parameters of the rollback>
 	private static HashMap<String, String[]> players_questioned_about_rollback = new HashMap<String, String[]>();
+	public static HashMap<String, ArrayList<String>> trust_list = new HashMap<String, ArrayList<String>>(), info_messages = new HashMap<String, ArrayList<String>>();
 	// inspecting_players=new HashMap<a player using the inspector, Object[] {Location of the last block clicked, int of the number of times the block}>
 	private static HashMap<String, Object[]> inspecting_players = new HashMap<String, Object[]>();
 	public static HashMap<UUID, String> TNT_causes = new HashMap<UUID, String>();
 	private static ArrayList<String> confirmed_gamemode_changers = new ArrayList<String>(), halted_players = new ArrayList<String>(), muted_players = new ArrayList<String>();
 	private static Timer autosave_timer;
+	public static HashMap<Block, String> locked_blocks = new HashMap<Block, String>();
 
 	// TODO: make /busy top (#) show the busiest people on the server by comparing the sizes of the cause log files
 	// TODO: make a turn on PvP command for specific players
@@ -222,6 +228,62 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	// intra-command methods
+	public static String arrayToList(String[] objects) {
+		if (objects.length == 0)
+			return null;
+		else if (objects.length == 1)
+			return objects[0];
+		else if (objects.length == 2)
+			return objects[0] + " and " + objects[1];
+		else {
+			String list = "";
+			for (int i = 0; i < objects.length; i++) {
+				list += objects[i];
+				if (i <= objects.length - 1) {
+					list += ", ";
+					if (i == objects.length - 1)
+						list += "and ";
+				}
+			}
+			return list;
+		}
+	}
+
+	public static String[] listToArray(String list) {
+		String[] objects = null;
+		// for 3+-item lists
+		if (list.contains(", ")) {
+			objects = list.split(", ");
+			// remove the "and" at the beginning of the list object
+			objects[objects.length - 1] = objects[objects.length - 1].substring(5);
+		}
+		// for 2-item lists
+		// ensure that the myPluginWiki can't return an item name for this whole list; if it can, it means it's not actually a two-item list, but a single item
+		// with the
+		// word "and" in the name (like "flint and steel")
+		else if (list.contains(" and ") && myPluginWiki.getItemIdAndData(list, null) == null) {
+			String[] temp = list.split(" and ");
+			objects = new String[2];
+			// if one or both of the items have an " and " in the name
+			if (temp.length > 2) {
+				// if the first two terms form an item, put them together to form the first object
+				if (myPluginWiki.getItemIdAndData(temp[0] + " and " + temp[1], null) != null) {
+					objects[0] = temp[0] + " and " + temp[1];
+					// if the length of temp is 4, both terms must have contained an " and "
+					if (temp.length == 4)
+						objects[1] = temp[2] + " and " + temp[3];
+					else
+						objects[1] = temp[2];
+				} else
+					return new String[] { temp[0], temp[1] + " and " + temp[2] };
+			} else
+				return temp;
+		} // for 1-item lists
+		else
+			return new String[] { list };
+		return objects;
+	}
+
 	public static String getFullName(String name) {
 		String full_name = null;
 		for (Player possible_owner : server.getOnlinePlayers())
@@ -388,6 +450,103 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			return null;
 	}
 
+	public String findCause(String[] actions, String[] objects, Location location) {
+		// first, read through the recent events saved in events
+		// make sure to read them backwards since the most recent events are at the end
+		for (int i = events.size() - 1; i >= 0; i--)
+			for (int j = 0; j < actions.length; j++)
+				if (events.get(i).action.equals(actions[j]) && (objects[j] == null || events.get(i).objects[0].toLowerCase().startsWith(objects[j].toLowerCase()))
+						&& events.get(i).location.equals(location))
+					return events.get(i).cause;
+		// if you couldn't find the recent event in events, check the logs
+		try {
+			File file =
+					new File(position_logs_folder, "(" + location.getBlockX() + ", " + location.getBlockZ() + ") " + location.getWorld().getWorldFolder().getName() + ".txt");
+			if (!file.exists())
+				return null;
+			BufferedReader in = new BufferedReader(new FileReader(file));
+			String save_line = in.readLine();
+			while (save_line != null) {
+				Event event = new Event(save_line);
+				for (int j = 0; j < actions.length; j++)
+					if (event.action.equals(actions[j]) && (objects[j] == null || event.objects[0].equals(objects[j])) && event.location.equals(location)) {
+						in.close();
+						return event.cause;
+					}
+				save_line = in.readLine();
+			}
+			in.close();
+		} catch (IOException exception) {
+			console.sendMessage(ChatColor.DARK_RED + "I got an IOException while trying to find the cause of a recent \"" + objects[0] + " " + actions[0]
+					+ "\" (or other actions and objects) event!");
+			exception.printStackTrace();
+			return null;
+		}
+		// if you couldn't find anything at all, return null
+		return null;
+	}
+
+	public String findCause(String action, String object, Location location) {
+		// first, read through the recent events saved in events
+		// make sure to read them backwards since the most recent events are at the end
+		for (int i = events.size() - 1; i >= 0; i--)
+			if (events.get(i).action.equals(action) && (object == null || events.get(i).objects[0].toLowerCase().startsWith(object.toLowerCase()))
+					&& events.get(i).location.equals(location))
+				return events.get(i).cause;
+		// if you couldn't find the recent event in events, check the logs
+		try {
+			File file =
+					new File(position_logs_folder, "(" + location.getBlockX() + ", " + location.getBlockZ() + ") " + location.getWorld().getWorldFolder().getName() + ".txt");
+			if (!file.exists())
+				return null;
+			BufferedReader in = new BufferedReader(new FileReader(file));
+			String save_line = in.readLine();
+			while (save_line != null) {
+				Event event = new Event(save_line);
+				if (event.action.equals(action) && (object == null || event.objects[0].equals(object)) && event.location.equals(location)) {
+					in.close();
+					return event.cause;
+				}
+				save_line = in.readLine();
+			}
+			in.close();
+		} catch (IOException exception) {
+			console.sendMessage(ChatColor.DARK_RED + "I got an IOException while trying to find the cause of a recent \"" + object + " " + action + "\" event!");
+			exception.printStackTrace();
+			return null;
+		}
+		// if you couldn't find anything at all, return null
+		return null;
+	}
+
+	public void checkForReactionBreaks(Event break_event, ArrayList<Block> exempt_blocks) {
+		// check the sides of the broken block for possible reaction breaks
+		for (int i = 0; i < 4; i++) {
+			int x = break_event.x, z = break_event.z;
+			if (i == 0)
+				x--;
+			else if (i == 1)
+				x++;
+			else if (i == 2)
+				z--;
+			else
+				z++;
+			Location location = new Location(break_event.world, x, break_event.y, z);
+			if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
+				server.getScheduler().scheduleSyncDelayedTask(
+						this,
+						new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true,
+								false), location, break_event.in_Creative_Mode)), 1);
+		}
+		// check the top of the broken block for possible reaction breaks
+		Location location = new Location(break_event.world, break_event.x, break_event.y + 1, break_event.z);
+		if (myPluginWiki.mustBeAttached(location.getBlock(), null) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
+			server.getScheduler().scheduleSyncDelayedTask(
+					this,
+					new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true, false),
+							location, break_event.in_Creative_Mode)), 1);
+	}
+
 	// listeners
 	@Override
 	public void actionPerformed(ActionEvent event) {
@@ -401,7 +560,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler
 	public void checkForUnconfirmedGamemodeChanges(PlayerGameModeChangeEvent event) {
-		if (confirmed_gamemode_changers.contains(event.getPlayer().getName()))
+		if (confirmed_gamemode_changers.contains(event.getPlayer().getName()) || event.getPlayer().hasPermission("myguarddog.admin"))
 			confirmed_gamemode_changers.remove(event.getPlayer().getName());
 		else {
 			event.setCancelled(true);
@@ -476,112 +635,151 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		new TimedMethod(console, "save the logs", true, null).run();
 	}
 
+	@EventHandler(priority = EventPriority.HIGH)
+	public void trackTNTMinecartActivations(VehicleMoveEvent event) {
+		if (!(event.getVehicle().getType() == EntityType.MINECART_TNT && !TNT_causes.containsKey(event.getVehicle().getUniqueId())
+				&& event.getTo().getBlock().getType() == Material.ACTIVATOR_RAIL && event.getTo().getBlock().isBlockIndirectlyPowered()))
+			return;
+		String cause = findCause("placed", "an activator rail", event.getTo());
+		if (cause != null)
+			TNT_causes.put(event.getVehicle().getUniqueId(), cause);
+	}
+
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logBlockBreakAndInspect(BlockBreakEvent event) {
-		// TODO: make sure that if someone breaks the block that this block is attached to, it logs them as the cause of this event, too.
+		if (event.isCancelled())
+			return;
 		if (inspecting_players.containsKey(event.getPlayer().getName())) {
 			event.setCancelled(true);
 			inspect(event.getPlayer(), event.getBlock().getLocation());
 			return;
 		}
-		events.add(new Event(event.getPlayer().getName(), "broke", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		Event break_event = new Event(event.getPlayer().getName(), "broke", event.getBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE);
+		events.add(break_event);
+		checkForReactionBreaks(break_event, null);
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logBlockPlaceAndInspect(BlockPlaceEvent event) {
+		if (event.isCancelled())
+			return;
+		// inspect
 		if (inspecting_players.containsKey(event.getPlayer().getName())) {
 			event.setCancelled(true);
 			inspect(event.getPlayer(), event.getBlock().getLocation());
-			return;
-		}
-		if (event.getPlayer() != null)
+		} // cancel someone trying to place a hopper below a locked block with an inventory
+			// translation: if the player is placing a hopper, the block above the hopper is a lockable container owned by someone else, the player placing the
+			// hopper isn't on the container owner's trust list, and the player placing the hopper isn't an admin
+		else if (event.getBlock().getType() == Material.HOPPER && myPluginWiki.isLockable(event.getBlock().getRelative(BlockFace.UP), true)
+				&& locked_blocks.containsKey(event.getBlock().getRelative(BlockFace.UP))
+				&& !event.getPlayer().getName().equals(locked_blocks.get(event.getBlock().getRelative(BlockFace.UP)))
+				&& trust_list.get(locked_blocks.get(event.getBlock().getRelative(BlockFace.UP))).contains(event.getPlayer().getName())
+				&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+			event.setCancelled(true);
+			event.getPlayer().sendMessage(
+					ChatColor.RED + "Ha ha! You make me laugh! I'm not that stupid. You can't put a hopper below someone else's locked container and steal all their stuff.");
+		} else if (event.getPlayer() != null) {
+			// lock lockable blocks automatically
+			if (myPluginWiki.isLockable(event.getBlock(), null)) {
+				locked_blocks.put(event.getBlock(), event.getPlayer().getName());
+				event.getPlayer().sendMessage(ChatColor.YELLOW + "I locked your " + myPluginWiki.getItemName(event.getBlock(), false, true, true) + ".");
+			}
+			// log placements
 			// log fire placement as ignition and don't log air placement because that makes no sense!
-			if (event.getBlock().getTypeId() != 0 && event.getBlock().getTypeId() != 51)
+			if (event.getBlock().getType() != Material.AIR && event.getBlock().getType() != Material.FIRE) {
 				events.add(new Event(event.getPlayer().getName(), "placed", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getBlock().getTypeId() != 0 && event.getBlock().getTypeId() != 46)
+				if (event.getBlockReplacedState().getType() != Material.AIR)
+					events.add(new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event
+							.getBlockReplacedState().getData().getData(), true, true, false), event.getBlock().getLocation(),
+							event.getPlayer().getGameMode() == GameMode.CREATIVE));
+			} // consider "placing fire" the same as "setting fire to" something, but don't bother logging T.N.T. ignition
+			else if (event.getBlock().getType() == Material.FIRE && event.getBlockReplacedState().getType() != Material.TNT)
 				events.add(new Event(event.getPlayer().getName(), "set fire to", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getBlock().getTypeId() == 46)
-				// oh, shit, T.N.T.!
-				events.add(new Event(event.getPlayer().getName(), "lit", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		}
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logItemFrameAndPaintingBreaking(HangingBreakByEntityEvent event) {
-		// TODO: make it also log other causes of HangingBreakEvents when they can be better logged
+		if (event.isCancelled())
+			return;
 		String cause;
 		Boolean in_Creative_Mode = null;
 		if (event.getRemover() instanceof Player) {
 			cause = ((Player) event.getRemover()).getName();
 			in_Creative_Mode = ((Player) event.getRemover()).getGameMode().equals(GameMode.CREATIVE);
 		} else
-			cause = Wiki.getEntityName(event.getRemover(), true, true);
+			cause = myPluginWiki.getEntityName(event.getRemover(), true, true);
 		events.add(new Event(cause, "took down", event.getEntity(), in_Creative_Mode));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logItemFrameAndPaintingPlacing(HangingPlaceEvent event) {
+		if (event.isCancelled())
+			return;
 		events.add(new Event(event.getPlayer().getName(), "hung", event.getEntity(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
-	public void logWaterAndLavaSpreadAndBlocksBrokenByIt(BlockSpreadEvent event) {
-		// TODO
-	}
-
-	@EventHandler(priority = EventPriority.HIGH)
-	public void trackTNTMinecartActivations(VehicleMoveEvent event) {
-		if (!(event.getVehicle().getType() == EntityType.MINECART_TNT && !TNT_causes.containsKey(event.getVehicle().getUniqueId())
-				&& event.getTo().getBlock().getType() == Material.ACTIVATOR_RAIL && event.getTo().getBlock().isBlockIndirectlyPowered()))
+	public void logWaterAndLavaSpreadAndBlocksBrokenByIt(BlockFromToEvent event) {
+		// TODO figure out how to make it log water and lava recession
+		if (event.isCancelled())
 			return;
-		String cause = null;
-		// next, look through the events ArrayList for one where someone placed T.N.T. at or above the location of the explosion
-		for (int i = events.size() - 1; i >= 0; i--)
-			if (events.get(i).action.equals("placed") && events.get(i).objects[0].startsWith("an activator rail") && events.get(i).x == event.getTo().getBlockX()
-					&& events.get(i).z == event.getTo().getBlockZ() && events.get(i).world.equals(event.getTo().getWorld())) {
-				cause = events.get(i).cause;
-				break;
-			}
-		if (cause == null) {
-			// if it wasn't a recent event, look through the logged events
-			File log_file =
-					new File(position_logs_folder, "(" + event.getTo().getBlockX() + ", " + event.getTo().getBlockZ() + ") "
-							+ event.getTo().getWorld().getWorldFolder().getName() + ".txt");
-			if (log_file.exists()) {
-				try {
-					BufferedReader in = new BufferedReader(new FileReader(log_file));
-					String save_line = in.readLine();
-					while (save_line != null) {
-						Event placement_event = new Event(save_line);
-						if (placement_event.action.equals("placed") && placement_event.objects[0].startsWith("an activator rail")
-								&& placement_event.x == event.getTo().getBlockX() && placement_event.z == event.getTo().getBlockZ()
-								&& placement_event.world.equals(event.getTo().getWorld())) {
-							cause = placement_event.cause;
-							break;
-						}
-						save_line = in.readLine();
-					}
-				} catch (IOException exception) {
-					console.sendMessage(ChatColor.DARK_RED + "I got an IOException while trying to read the " + log_file.getName()
-							+ " file to find the cause of the recent T.N.T. minecart explosion!");
-					exception.printStackTrace();
-				}
-			}
+		// if the block it's trying to spread to can't be broken by liquds, it won't actually spread, so cancel the event
+		if (!myPluginWiki.canBeBrokenByLiquids(event.getToBlock()) && !myPluginWiki.canBeBrokenByLiquids(event.getBlock())) {
+			event.setCancelled(true);
+			return;
 		}
-		if (cause != null)
-			TNT_causes.put(event.getVehicle().getUniqueId(), cause);
+		String cause = null, action, object;
+		// lava spread
+		if (event.getBlock().getType() == Material.LAVA || event.getBlock().getType() == Material.STATIONARY_LAVA) {
+			action = "spread";
+			object = "some lava";
+			cause = findCause(new String[] { "placed", "spread" }, new String[] { object, object }, event.getBlock().getLocation());
+		} // lava runoff disappation
+		else if (event.getToBlock().getType() == Material.LAVA || event.getToBlock().getType() == Material.STATIONARY_LAVA) {
+			action = "removed";
+			object = "some lava";
+			cause = findCause("removed", object, event.getBlock().getLocation());
+		} // water spread
+		else if (event.getBlock().getType() == Material.WATER || event.getBlock().getType() == Material.STATIONARY_WATER) {
+			action = "spread";
+			object = "some water";
+			cause = findCause(new String[] { "placed", "spread" }, new String[] { object, object }, event.getBlock().getLocation());
+		} // water runoff disappation
+		else if (event.getToBlock().getType() == Material.WATER || event.getToBlock().getType() == Material.STATIONARY_WATER) {
+			action = "removed";
+			object = "some water";
+			cause = findCause("removed", object, event.getBlock().getLocation());
+		} else {
+			console.sendMessage(ChatColor.DARK_RED + "An unidentified BlockFromToEvent involving liquids occurred at (" + event.getBlock().getX() + ", "
+					+ event.getBlock().getY() + ", " + event.getBlock().getZ() + ")!");
+			console.sendMessage(ChatColor.YELLOW + event.getBlock().getType().toString() + ChatColor.WHITE + " (" + event.getBlock().getX() + ", " + event.getBlock().getY()
+					+ ", " + event.getBlock().getZ() + ") " + ChatColor.GRAY + ">> " + ChatColor.YELLOW + event.getToBlock().getType().toString() + ChatColor.WHITE + " ("
+					+ event.getToBlock().getX() + ", " + event.getToBlock().getY() + ", " + event.getToBlock().getZ() + ")");
+			return;
+		}
+		// don't log the spread of natural lava or water that happens when new chunks are rendered
+		if (cause == null)
+			return;
+		events.add(new Event(cause, action, object, event.getToBlock().getLocation(), null));
+		// if the lava or water doesn't flow onto an air block, it must have broken another block to get there
+		if (event.getToBlock().getType() != Material.AIR)
+			events.add(new Event(cause, "broke", event.getToBlock(), null));
 	}
 
 	@EventHandler(priority = EventPriority.HIGH)
 	public void logExplosions(EntityExplodeEvent event) {
+		if (event.isCancelled())
+			return;
 		// identify the cause of the event
-		String cause = Wiki.getEntityName(event.getEntity(), true, true), action = "blew up";
+		String cause = myPluginWiki.getEntityName(event.getEntity(), true, true), action = "blew up";
 		if (event.getEntityType() == EntityType.CREEPER) {
-			double distance = 0;
+			double distance = 10000;
 			for (Entity entity : event.getEntity().getNearbyEntities(6, 6, 6))
 				if (entity.getType() == EntityType.PLAYER
-						&& (cause == null || distance > Math.sqrt(Math.pow(event.getEntity().getLocation().getX() - entity.getLocation().getX(), 2)
+						&& distance > Math.sqrt(Math.pow(event.getEntity().getLocation().getX() - entity.getLocation().getX(), 2)
 								+ Math.pow(event.getEntity().getLocation().getY() - entity.getLocation().getY(), 2)
-								+ Math.pow(event.getEntity().getLocation().getZ() - entity.getLocation().getZ(), 2)))) {
+								+ Math.pow(event.getEntity().getLocation().getZ() - entity.getLocation().getZ(), 2))) {
 					cause = ((Player) entity).getName();
 					action = "creeper'd";
 					// distance = SQRT((SQRT((dx^2) + (dy^2)))^2 + dz^2) = SQRT(dx^2 + dy^2 + dz^2)
@@ -635,7 +833,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				}
 			}
 			if (!cause.equals("some T.N.T."))
-				action = "T.N.T.'d";
+				action = "blew up";
 			else
 				console.sendMessage(ChatColor.RED + "I couldn't find the person who caused this T.N.T. explosion!");
 		} else if (event.getEntityType() == EntityType.MINECART_TNT) {
@@ -643,7 +841,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			if (TNT_causes.get(event.getEntity().getUniqueId()) != null) {
 				cause = TNT_causes.get(event.getEntity().getUniqueId());
 				TNT_causes.remove(event.getEntity().getUniqueId());
-				action = "T.N.T.-minecarted";
+				action = "blew up";
 			} else
 				console.sendMessage(ChatColor.RED + "I couldn't find the person who caused this T.N.T. minecart explosion!");
 		}
@@ -663,12 +861,13 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 						break;
 					}
 				}
-		for (Block block : event.blockList())
+		for (Block block : block_list)
 			// if "T.N.T. blew up T.N.T.", find the UUID of the primed T.N.T. created by this explosion so it can be tracked and the cause of
 			// the first T.N.T. can be used as the cause of this newly primed T.N.T.
-			if (block.getTypeId() != 46)
+			if (block.getType() != Material.TNT && block.getType() != Material.FIRE) {
 				events.add(new Event(cause, action, block, null));
-			else
+				checkForReactionBreaks(new Event(cause, action, block, null), block_list);
+			} else if (block.getType() == Material.FIRE)
 				// find the PRIMED_TNT Entity closest to the block
 				server.getScheduler().scheduleSyncDelayedTask(mGD, new TimedMethod(console, "track T.N.T.", block.getLocation(), cause), 1);
 		// through experimentation, I discovered that if an entity explodes and the explosion redirects a PRIMED_TNT Entity, it actually replaces the old
@@ -683,16 +882,29 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logNaturalIgnitions(BlockIgniteEvent event) {
-		// don't log if the event is cancelled (obviously), if a player did it (because it will be logged more already and more accurately in
-		// logBlockPlace() because apparently it considers someone lighting something on fire the same as someone placing fire), or if it was fire spread
-		// (because the spread is unimportant--only the blocks it breaks are important, which are logged in logFireDamage())
-		if (!event.isCancelled() && event.getPlayer() == null && !event.getCause().equals(IgniteCause.SPREAD)) {
+		if (event.isCancelled())
+			return;
+		// don't log if a player did it (because it will be logged more already and more accurately in logBlockPlace() because apparently it considers someone
+		// lighting something on fire the same as someone placing fire), or if it was fire spread (because the spread is unimportant--only the blocks it breaks
+		// are important, which are logged in logFireDamage())
+		if (event.getPlayer() == null && !event.getCause().equals(IgniteCause.SPREAD)) {
 			String cause;
-			if (event.getCause().equals(IgniteCause.LAVA))
+			if (event.getCause() == IgniteCause.LAVA) {
 				cause = "some lava";
-			else if (event.getCause().equals(IgniteCause.LIGHTNING))
+				for (int x = event.getBlock().getX() - 1; x <= event.getBlock().getX() + 1; x++)
+					for (int y = event.getBlock().getY() - 1; y <= event.getBlock().getY() + 1; y++)
+						for (int z = event.getBlock().getZ() - 1; z <= event.getBlock().getZ() + 1; z++)
+							if (new Location(event.getBlock().getWorld(), x, y, z).getBlock().getType() == Material.STATIONARY_LAVA
+									|| new Location(event.getBlock().getWorld(), x, y, z).getBlock().getType() == Material.LAVA) {
+								String possible_cause = findCause("spread", "some lava", new Location(event.getBlock().getWorld(), x, y, z));
+								if (possible_cause != null) {
+									cause = possible_cause;
+									break;
+								}
+							}
+			} else if (event.getCause() == IgniteCause.LIGHTNING)
 				cause = "some lightning";
-			else if (event.getCause().equals(IgniteCause.FIREBALL))
+			else if (event.getCause() == IgniteCause.FIREBALL)
 				cause = "a fireball";
 			else
 				cause = "something";
@@ -702,33 +914,38 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logFireDamage(BlockBurnEvent event) {
+		if (event.isCancelled())
+			return;
 		String cause = null;
-		for (int i = events.size() - 1; i > 0; i--)
-			if (events.get(i).x <= event.getBlock().getX() + 1
-					&& events.get(i).x >= event.getBlock().getX() - 1
-					&& events.get(i).y <= event.getBlock().getY() + 1
-					&& events.get(i).y >= event.getBlock().getY() - 1
-					&& events.get(i).z <= event.getBlock().getZ() + 1
-					&& events.get(i).z >= event.getBlock().getZ() - 1
-					&& (events.get(i).action.equals("set fire to") || ((events.get(i).action.equals("spread to") || events.get(i).action.equals("placed")) && events.get(i).cause
-							.equals("lava")))) {
-				cause = events.get(i).cause;
-				break;
-			}
-		if (cause != null)
-			events.add(new Event(cause, "burned", event.getBlock(), null));
+		for (int x = event.getBlock().getX() - 1; x <= event.getBlock().getX() + 1; x++)
+			for (int y = event.getBlock().getY() - 1; y <= event.getBlock().getY() + 1; y++)
+				for (int z = event.getBlock().getZ() - 1; z <= event.getBlock().getZ() + 1; z++) {
+					// try checking for fire-setting events
+					String possible_cause =
+							findCause(new String[] { "set fire to", "burned", "placed", "spread" }, new String[] { null, null, "some lava", "some lava" }, new Location(event
+									.getBlock().getWorld(), x, y, z));
+					if (possible_cause != null) {
+						cause = possible_cause;
+						break;
+					}
+				}
+		if (cause == null)
+			return;
+		events.add(new Event(cause, "burned", event.getBlock(), null));
+		checkForReactionBreaks(new Event(cause, "burned", event.getBlock(), null), null);
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logWaterAndLavaPlacement(PlayerBucketEmptyEvent event) {
-		// ids: 326=water bucket, 327=lava bucket, 335=milk bucket
-		if (event.getBucket().getId() == 326)
-			events.add(new Event(event.getPlayer().getName(), "placed", "water", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event.getPlayer()
-					.getGameMode().equals(GameMode.CREATIVE)));
-		else if (event.getBucket().getId() == 327)
-			events.add(new Event(event.getPlayer().getName(), "placed", "lava", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event.getPlayer()
-					.getGameMode().equals(GameMode.CREATIVE)));
-		else if (event.getBucket().getId() == 335)
+		if (event.isCancelled())
+			return;
+		if (event.getBucket() == Material.WATER_BUCKET)
+			events.add(new Event(event.getPlayer().getName(), "placed", "some water", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
+					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		else if (event.getBucket() == Material.LAVA_BUCKET)
+			events.add(new Event(event.getPlayer().getName(), "placed", "some lava", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
+					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		else if (event.getBucket() == Material.MILK_BUCKET)
 			events.add(new Event(event.getPlayer().getName(), "dumped out", "milk", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event.getPlayer()
 					.getGameMode().equals(GameMode.CREATIVE)));
 		else
@@ -737,10 +954,26 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
+	public void logWaterAndLavaRemoval(PlayerBucketFillEvent event) {
+		if (event.isCancelled())
+			return;
+		if (event.getBucket() == Material.WATER_BUCKET)
+			events.add(new Event(event.getPlayer().getName(), "removed", "some water", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
+					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		else if (event.getBucket() == Material.LAVA_BUCKET)
+			events.add(new Event(event.getPlayer().getName(), "removed", "some lava", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
+					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		else
+			events.add(new Event(event.getPlayer().getName(), "removed", "something", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
+					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logPlayerInteractionsAndInspect(PlayerInteractEvent event) {
-		// this part is for the inspector
-		if ((event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK))
-				&& inspecting_players.containsKey(event.getPlayer().getName())) {
+		if (event.isCancelled())
+			return;
+		// inspect
+		if ((event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) && inspecting_players.containsKey(event.getPlayer().getName())) {
 			event.setCancelled(true);
 			Location position = null;
 			if (event.getClickedBlock() != null)
@@ -751,94 +984,207 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				event.getPlayer().sendMessage(ChatColor.RED + "Sorry, but I can't see that far!");
 			else
 				inspect(event.getPlayer(), position);
-			return;
-		}
-		String action = null;
-		Block block = event.getClickedBlock();
-		// switches: lever=69, stone pressure plate=70, wooden pressure plate=72, stone button=77, wooden button = 143
-		// portals: wooden door=64, iron door=71, trapdoor=96, fence gate=107
-		// this logs stepping on pressure plates
-		if (event.getAction().equals(Action.PHYSICAL) && (block.getTypeId() == 70 || block.getTypeId() == 72))
-			action = "stepped on";
-		else if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK))
-			// these two log lever flipping and button pressing
-			if (block.getTypeId() == 69)
-				action = "flipped";
-			else if (block.getTypeId() == 77 || event.getClickedBlock().getTypeId() == 143)
-				action = "pressed";
-			else if (block.getTypeId() == 64) {
+		} // (un)lock lockable items
+		else if (event.getAction() == Action.LEFT_CLICK_BLOCK && event.getPlayer().getItemInHand().getType() == Material.IRON_INGOT
+				&& myPluginWiki.isLockable(event.getClickedBlock(), null)) {
+			Block block = event.getClickedBlock();
+			// if the block is a wooden door, make sure to check the bottom block of the door
+			if (event.getClickedBlock().getType() == Material.WOODEN_DOOR && event.getClickedBlock().getRelative(BlockFace.DOWN).getType() == Material.WOODEN_DOOR)
+				block = event.getClickedBlock().getRelative(BlockFace.DOWN);
+			// if the thing isn't already locked, try to lock it
+			if (!locked_blocks.containsKey(block)) {
+				locked_blocks.put(block, event.getPlayer().getName());
+				event.getPlayer().sendMessage(ChatColor.YELLOW + "Your " + myPluginWiki.getItemName(block, false, true, true) + " is now secure.");
+				// if the thing is already locked, try to unlock it
+			} else if (locked_blocks.get(block).equals(event.getPlayer().getName()) || trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName())
+					|| event.getPlayer().hasPermission("myguarddog.admin")) {
+				// if the owner is not the one unlocking the locked block, inform the owner
+				if (!locked_blocks.get(block).equals(event.getPlayer().getName())) {
+					Player owner = server.getPlayerExact(locked_blocks.get(block));
+					String message =
+							"&eHey, " + event.getPlayer().getName() + " unlocked your " + myPluginWiki.getItemName(block, false, true, true) + " at (" + block.getX() + ", "
+									+ block.getY() + ", " + block.getZ() + ") in \"" + block.getWorld().getWorldFolder().getName() + "\".";
+					if (owner.isOnline())
+						owner.sendMessage(message);
+					else {
+						ArrayList<String> messages = info_messages.get(owner.getName());
+						if (messages == null)
+							messages = new ArrayList<String>();
+						messages.add(message);
+						info_messages.put(owner.getName(), messages);
+					}
+					// send a confirmation message
+					event.getPlayer().sendMessage(
+							ChatColor.YELLOW + "You unlocked " + locked_blocks.get(block) + "'s " + myPluginWiki.getItemName(block, false, true, true) + ".");
+				} else
+					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked your " + myPluginWiki.getItemName(block, false, true, true) + ".");
+				// unlock the block
+				locked_blocks.remove(block);
+			} // if the thing is already locked and this player can't unlock it, cancel the event
+			else {
+				event.setCancelled(true);
+				event.getPlayer().sendMessage(
+						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
+								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to unlock it.");
+			}
+		} // log switch usage and prevent the use of locked items
+		else if (event.getAction() == Action.PHYSICAL
+				&& (event.getClickedBlock().getType() == Material.STONE_PLATE || event.getClickedBlock().getType() == Material.WOOD_PLATE))
+			if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+					&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
+				event.setCancelled(true);
+				event.getPlayer().sendMessage(
+						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
+								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+			} else
+				events.add(new Event(event.getPlayer().getName(), "stepped on", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		else if (event.getAction() == Action.RIGHT_CLICK_BLOCK && !event.getPlayer().isSneaking())
+			if (event.getClickedBlock().getType() == Material.LEVER)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this lever is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} else
+					events.add(new Event(event.getPlayer().getName(), "flipped", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			else if (event.getClickedBlock().getType() == Material.STONE_BUTTON || event.getClickedBlock().getType() == Material.WOOD_BUTTON)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
+									+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} else
+					events.add(new Event(event.getPlayer().getName(), "pressed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			else if (event.getClickedBlock().getType() == Material.WOODEN_DOOR) {
 				// if it's the top block of a door, data=8 or 9; if you're closing a door, data=4-7; if you're opening a door, data=0-3
+				Block block = event.getClickedBlock();
 				if (block.getData() >= 8)
 					block = new Location(block.getLocation().getWorld(), block.getLocation().getX(), block.getLocation().getY() - 1, block.getLocation().getZ()).getBlock();
-				if (block.getData() < 4)
-					action = "opened";
+				if (locked_blocks.containsKey(block) && !locked_blocks.get(block).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this wooden door is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} else if (block.getData() < 4)
+					events.add(new Event(event.getPlayer().getName(), "opened", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 				else
-					action = "closed";
-			} else if (block.getTypeId() == 96)
-				// if you're closing a trapdoor, data=4-7 or 12-15; if you're opening a trapdoor, data=0-3 or 8-11
-				if (block.getData() < 4 || (block.getData() >= 8 && block.getData() <= 11))
-					action = "opened";
+					events.add(new Event(event.getPlayer().getName(), "closed", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			} else if (event.getClickedBlock().getType() == Material.TRAP_DOOR)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this trapdoor is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} // if you're closing a trapdoor, data=4-7 or 12-15; if you're opening a trapdoor, data=0-3 or 8-11
+				else if (event.getClickedBlock().getData() < 4 || (event.getClickedBlock().getData() >= 8 && event.getClickedBlock().getData() <= 11))
+					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 				else
-					action = "closed";
-			else if (block.getTypeId() == 107)
-				// if you're closing a fence gate, data=4-7; if you're opening a fence gate, data=0-3
-				if (block.getData() < 4)
-					action = "opened";
+					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			else if (event.getClickedBlock().getType() == Material.FENCE_GATE)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this fence gate is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} // if you're closing a fence gate, data=4-7; if you're opening a fence gate, data=0-3
+				else if (event.getClickedBlock().getData() < 4)
+					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 				else
-					action = "closed";
-			// bonemeal=351:15, saplings=6, wheat=59, carrots=141, potatoes=142, brown mushroom=39, red mushroom=40, grass=2, cocoa beans=127, melon stems=105,
-			// pumpkin stems=104, Nether warts=115
-			// this logs bonemealing of plants
+					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			// log plant bonemealing (bonemeal=351:15)
 			else if (event.getPlayer().getItemInHand().getTypeId() == 351
 					&& event.getPlayer().getItemInHand().getData().getData() == 15
-					&& (block.getTypeId() == 6 || block.getTypeId() == 59 || block.getTypeId() == 141 || block.getTypeId() == 142 || block.getTypeId() == 39
-							|| block.getTypeId() == 40 || block.getTypeId() == 2 || block.getTypeId() == 127 || block.getTypeId() == 105 || block.getTypeId() == 104 || block
-							.getTypeId() == 115))
-				events.add(new Event(event.getPlayer().getName(), "bonemealed", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-		if (action != null)
-			events.add(new Event(event.getPlayer().getName(), action, block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+					&& (event.getClickedBlock().getType() == Material.SAPLING || event.getClickedBlock().getType() == Material.WHEAT
+							|| event.getClickedBlock().getType() == Material.CARROT || event.getClickedBlock().getType() == Material.POTATO
+							|| event.getClickedBlock().getType() == Material.BROWN_MUSHROOM || event.getClickedBlock().getType() == Material.RED_MUSHROOM
+							|| event.getClickedBlock().getType() == Material.GRASS || event.getClickedBlock().getType() == Material.COCOA
+							|| event.getClickedBlock().getType() == Material.MELON_STEM || event.getClickedBlock().getType() == Material.PUMPKIN_STEM || event
+							.getClickedBlock().getType() == Material.NETHER_WARTS))
+				events.add(new Event(event.getPlayer().getName(), "bonemealed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			// log chest opening and closing
+			else if (event.getClickedBlock().getType() == Material.CHEST || event.getClickedBlock().getType() == Material.LOCKED_CHEST
+					|| event.getClickedBlock().getType() == Material.TRAPPED_CHEST || event.getClickedBlock().getType() == Material.ENDER_CHEST)
+				events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logEndermanBlockInteractionsAndSandAndGravelFalling(EntityChangeBlockEvent event) {
+		if (event.isCancelled())
+			return;
 		if (event.getEntityType() == EntityType.ENDERMAN)
 			if (event.getBlock().getTypeId() != 0)
 				events.add(new Event("an Enderman", "picked up", event.getBlock(), null));
 			else
 				server.getScheduler().scheduleSyncDelayedTask(this, new TimedMethod(console, "track Enderman placements", event.getBlock(), null), 1);
-		else if (event.getEntityType() != EntityType.SHEEP) {
-			// TODO: log falling sand and gravel
+		else if (event.getEntityType() == EntityType.FALLING_BLOCK) {
+			String cause = null, action, object;
+			// figure out whether this was sand or gravel
+			if (event.getTo() == Material.SAND || event.getBlock().getType() == Material.SAND)
+				object = "some sand";
+			else
+				object = "some gravel";
+			// figure out whether this event is a landing or a dropping
+			if (event.getTo() == Material.SAND || event.getTo() == Material.GRAVEL) {
+				action = "relocated";
+				// figure out the cause
+				for (int y = event.getBlock().getY(); y <= event.getBlock().getWorld().getMaxHeight(); y++) {
+					cause = findCause("dropped", object, new Location(event.getBlock().getWorld(), event.getBlock().getX(), y, event.getBlock().getZ()));
+					if (cause != null)
+						break;
+				}
+			} else {
+				action = "dropped";
+				// figure out the cause
+				cause =
+						findCause(new String[] { "broke", "dropped" }, new String[] { null, null }, new Location(event.getBlock().getWorld(), event.getBlock().getX(), event
+								.getBlock().getY() - 1, event.getBlock().getZ()));
+				if (cause == null)
+					cause = findCause("placed", object, event.getBlock().getLocation());
+			}
+			if (cause == null)
+				return;
+			events.add(new Event(cause, action, object, event.getBlock().getLocation(), null));
 		}
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logTreeAndGiantMushroomGrowth(StructureGrowEvent event) {
+		if (event.isCancelled())
+			return;
+		if (event.getBlocks().size() <= 1)
+			return;
 		String cause = null;
 		if (event.getPlayer() != null)
 			cause = event.getPlayer().getName();
 		else
 			// if it doesn't log the player, find the player who planted it
-			for (int i = events.size(); i >= 0; i--)
-				if (events.get(i).action.equals("placed") && events.get(i).objects[0] != null && events.get(i).objects[0].equals("a sapling")
-						&& event.getBlocks().get(0).getBlock().getLocation().equals(events.get(i).location))
-					cause = events.get(i).cause;
+			cause =
+					findCause(new String[] { "an oak sapling", "a birch sapling", "a spruce sapling", "a jungle sapling" }, new String[] { "placed", "placed", "placed",
+							"placed" }, event.getBlocks().get(0).getLocation());
 		// make sure that it only logs growth of trees and giant mushrooms by making sure the number of blocks is >1
-		if (cause != null && event.getBlocks().size() > 1) {
+		if (cause != null) {
 			String object = null;
 			// logs as "a tree" for leaves or logs
-			if (event.getBlocks().get(1).getBlock().getTypeId() == 17 || event.getBlocks().get(1).getBlock().getTypeId() == 18)
+			if (event.getBlocks().get(1).getType() == Material.LOG || event.getBlocks().get(1).getType() == Material.LEAVES)
 				object = "a tree";
-			else if (event.getBlocks().get(1).getBlock().getTypeId() == 100)
+			// 100 = giant red mushroom
+			else if (event.getBlocks().get(1).getTypeId() == 100)
 				object = "a giant red mushroom";
-			else if (event.getBlocks().get(1).getBlock().getTypeId() == 99)
+			// 99 = giant brown mushroom
+			else if (event.getBlocks().get(1).getTypeId() == 99)
 				object = "a giant brown mushroom";
-			if (object != null)
-				for (int i = 0; i < event.getBlocks().size(); i++)
-					events.add(new Event(cause, "grew", object, event.getBlocks().get(i).getBlock().getLocation(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 			else {
-				console.sendMessage(ChatColor.RED + "There was an unidentified StructureGrowEvent at (" + event.getBlocks().get(0).getBlock().getX() + ", "
-						+ event.getBlocks().get(0).getBlock().getY() + ", " + event.getBlocks().get(0).getBlock().getZ() + ").");
-				console.sendMessage(ChatColor.WHITE + "event.getBlocks().get(0).getBlock().getTypeId() = " + event.getBlocks().get(0).getBlock().getTypeId());
+				console.sendMessage(ChatColor.RED + "There was an unidentified StructureGrowEvent at (" + event.getBlocks().get(1).getBlock().getX() + ", "
+						+ event.getBlocks().get(1).getBlock().getY() + ", " + event.getBlocks().get(1).getBlock().getZ() + ").");
+				console.sendMessage(ChatColor.WHITE + "event.getBlocks().get(1).getBlock().getTypeId() = " + event.getBlocks().get(1).getTypeId());
+				return;
+			}
+			for (BlockState block : event.getBlocks()) {
+				// differentiate between different parts of the tree so events involving it can be rolled back or restored
+				if (object.equals("a tree"))
+					object = "a tree (" + myPluginWiki.getItemName(block.getTypeId(), block.getData().getData(), true, true, false) + ")";
+				events.add(new Event(cause, "grew", object, block.getBlock().getLocation(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 			}
 		}
 
@@ -846,11 +1192,26 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logLeafDecay(LeavesDecayEvent event) {
-		for (Event mGD_event : events)
-			if (mGD_event.location.equals(event.getBlock().getLocation()) && (mGD_event.action.equals("grew") || mGD_event.action.equals("bonemealed"))
-					&& mGD_event.objects[0].equals("a tree")) {
-				// TODO
-			}
+		if (event.isCancelled())
+			return;
+		double distance = 10000;
+		String cause = null;
+		for (int x = event.getBlock().getX() - 4; x <= event.getBlock().getX() + 4; x++)
+			for (int y = event.getBlock().getY() - 4; y <= event.getBlock().getY() + 4; y++)
+				for (int z = event.getBlock().getZ() - 4; z <= event.getBlock().getZ() + 4; z++) {
+					String temp =
+							findCause(new String[] { "broke", "broke", "broke", "broke", "broke", "broke", "broke", "broke", "decayed", "decayed", "decayed", "decayed" },
+									new String[] { "an oak log", "a birch log", "a spruce log", "a jungle log", "some oak leaves", "some birch leaves", "some spruce leaves",
+											"some jungle leaves", "some oak leaves", "some birch leaves", "some spruce leaves", "some jungle leaves" }, new Location(event
+											.getBlock().getWorld(), x, y, z));
+					if (temp != null && new Location(event.getBlock().getWorld(), x, y, z).distanceSquared(event.getBlock().getLocation()) < distance) {
+						cause = temp;
+						distance = new Location(event.getBlock().getWorld(), x, y, z).distanceSquared(event.getBlock().getLocation());
+					}
+				}
+		if (cause == null)
+			return;
+		events.add(new Event(cause, "decayed", event.getBlock(), null));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -879,12 +1240,109 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		}
 	}
 
-	@EventHandler(priority = EventPriority.HIGHEST)
-	public void logSheepColorDye(PlayerInteractEntityEvent event) {
-		// TODO make sure that if you right-click a sheep with dye that's already the same color as the sheep, it doesn't log it
-		if (event.getRightClicked().getType() == EntityType.SHEEP && event.getPlayer().getItemInHand().getTypeId() == 351)
-			events.add(new Event(event.getPlayer().getName(), "dyed " + wool_dye_colors[event.getPlayer().getItemInHand().getData().getData()], event.getRightClicked(), event
-					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+	// loading
+	public void loadTheLockedBlocks(CommandSender sender) {
+		locked_blocks = new HashMap<Block, String>();
+		File locked_blocks_file = new File(getDataFolder(), "locked_blocks.txt");
+		// read the locked blocks.txt file
+		try {
+			if (!locked_blocks_file.exists()) {
+				getDataFolder().mkdir();
+				console.sendMessage(ChatColor.YELLOW + "I couldn't find a locked blocks.txt file. I'll make a new one.");
+				locked_blocks_file.createNewFile();
+				return;
+			}
+			BufferedReader in = new BufferedReader(new FileReader(locked_blocks_file));
+			String save_line = in.readLine();
+			while (save_line != null) {
+				if (!save_line.equals("")) {
+					// save line format:
+					// [player] locked [block type] at ([x], [y], [z]) in "[world]".
+					String[] coordinates = save_line.substring(save_line.indexOf("(") + 1, save_line.indexOf(")")).split(", ");
+					try {
+						locked_blocks.put(new Location(server.getWorld(save_line.substring(save_line.indexOf("\"") + 1, save_line.length() - 2)), Integer
+								.parseInt(coordinates[0]), Integer.parseInt(coordinates[1]), Integer.parseInt(coordinates[2])).getBlock(), save_line.split(" locked ")[0]);
+					} catch (NumberFormatException exception) {
+						console.sendMessage(ChatColor.DARK_RED + "I got an error trying to read this save line for a locked block!");
+						console.sendMessage(ChatColor.WHITE + "\"" + save_line + "\"");
+						console.sendMessage(ChatColor.DARK_RED + "I read these as the block's coordinates: " + ChatColor.WHITE + "\"" + coordinates[0] + "\", \""
+								+ coordinates[1] + "\", \"" + coordinates[2] + "\"");
+					}
+				}
+				save_line = in.readLine();
+			}
+			in.close();
+			saveTheLockedBlocks(sender, false);
+		} catch (IOException exception) {
+			console.sendMessage(ChatColor.DARK_RED + "I got an IOException while trying to save your locked blocks.");
+			exception.printStackTrace();
+			return;
+		}
+		// send the sender a confirmation message
+		if (locked_blocks.size() > 1)
+			sender.sendMessage(ChatColor.YELLOW + "Your " + locked_blocks.size() + " locked blocks have been loaded.");
+		else if (locked_blocks.size() == 1)
+			sender.sendMessage(ChatColor.YELLOW + "Your 1 locked block has been loaded.");
+		else
+			sender.sendMessage(ChatColor.YELLOW + "You have no locked blocks to load!");
+		if (sender instanceof Player)
+			if (locked_blocks.size() > 1)
+				console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName() + " loaded " + locked_blocks.size() + " locked blocks from file.");
+			else if (locked_blocks.size() == 1)
+				console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName() + " loaded the server's 1 locked block from file.");
+			else
+				console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName() + " loaded the server's locked blocks from file, but there were no locked blocks on file.");
+	}
+
+	// saving
+	public void saveTheLockedBlocks(CommandSender sender, boolean display_message) {
+		// check the warps file
+		File locked_blocks_file = new File(getDataFolder(), "locked blocks.txt");
+		if (!locked_blocks_file.exists()) {
+			getDataFolder().mkdir();
+			try {
+				sender.sendMessage(ChatColor.GREEN + "I couldn't find a locked blocks.txt file. I'll make a new one.");
+				locked_blocks_file.createNewFile();
+			} catch (IOException exception) {
+				sender.sendMessage(ChatColor.DARK_RED + "I couldn't create a locked blocks.txt file! Oh nos!");
+				exception.printStackTrace();
+				return;
+			}
+		}
+		// save the warps
+		try {
+			BufferedWriter out = new BufferedWriter(new FileWriter(locked_blocks_file));
+			for (int i = 0; i < locked_blocks.size(); i++) {
+				Block block = (Block) locked_blocks.keySet().toArray()[i];
+				// save line format:
+				// [player] locked [block type] at ([x], [y], [z]) in "[world]".
+				out.write(locked_blocks.get(block) + " locked " + myPluginWiki.getItemName(block, false, true, false) + " at (" + block.getX() + ", " + block.getY() + ", "
+						+ block.getZ() + " in \"" + block.getWorld().getWorldFolder().getName() + "\".");
+				if (i < locked_blocks.size() - 1)
+					out.newLine();
+			}
+			out.close();
+		} catch (IOException exception) {
+			sender.sendMessage(ChatColor.DARK_RED + "I got an IOException while trying to save your locked blocks.");
+			exception.printStackTrace();
+			return;
+		}
+		if (display_message) {
+			if (locked_blocks.size() > 1)
+				sender.sendMessage(ChatColor.GREEN + "Your " + locked_blocks.size() + " locked blocks have been saved.");
+			else if (locked_blocks.size() == 1)
+				sender.sendMessage(ChatColor.GREEN + "Your 1 locked block has been saved.");
+			else
+				sender.sendMessage(ChatColor.GREEN + "You have no locked blocks to save!");
+			if (sender instanceof Player)
+				if (locked_blocks.size() > 1)
+					console.sendMessage(ChatColor.GREEN + ((Player) sender).getName() + " saved " + locked_blocks.size() + " locked blocks to file.");
+				else if (locked_blocks.size() == 1)
+					console.sendMessage(ChatColor.GREEN + ((Player) sender).getName() + " saved the server's 1 locked block to file.");
+				else
+					console.sendMessage(ChatColor.GREEN + ((Player) sender).getName()
+							+ " tried to save the server's locked blocks to file, but there were no locked blocks on the server to save.");
+		}
 	}
 
 	// plugin commands
@@ -1049,7 +1507,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	private void inspect(Player player, Location position) {
 		// this checks the number of times this player has clicked the same block and if the block they're clicking now is the same one. This allows
-		// players to click blocks multiple times to see more than just the past 4 events
+		// players to click blocks multiple times to see more than just the past 2 events
 		int times_clicked = 0;
 		if (inspecting_players.get(player.getName()) != null && inspecting_players.get(player.getName())[0].equals(position)) {
 			times_clicked = (Integer) inspecting_players.get(player.getName())[1];
@@ -1070,11 +1528,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		ArrayList<Event> display_events = new ArrayList<Event>();
 		for (int i = events.size() - 1; i >= 0; i--)
 			if (events.get(i).x == position.getBlockX() && events.get(i).y == position.getBlockY() && events.get(i).z == position.getBlockZ()) {
-				if (other_relevant_events < 4 * times_clicked)
+				if (other_relevant_events < 2 * times_clicked)
 					other_relevant_events++;
 				// if we already have five events that need displaying and we find another after it, we can end the search here and tell the inspector that they
 				// can "Click again to see more!"
-				else if (display_events.size() == 4) {
+				else if (display_events.size() == 2) {
 					player.sendMessage(ChatColor.YELLOW + "I see that...");
 					for (Event display : display_events)
 						player.sendMessage(ChatColor.WHITE + display.save_line);
@@ -1105,11 +1563,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				Event event = new Event(save_line);
 				// since we're reading the position log, there's no need to check if the x and z are right
 				if (event.y == position.getBlockY()) {
-					if (other_relevant_events < 4 * times_clicked)
+					if (other_relevant_events < 2 * times_clicked)
 						other_relevant_events++;
 					// if we already have five events that need displaying and we find another after it, we can end the search here and tell the inspector that
 					// they can "Click again to see more!"
-					else if (display_events.size() == 4) {
+					else if (display_events.size() == 2) {
 						player.sendMessage(ChatColor.YELLOW + "I see that...");
 						for (Event display : display_events)
 							player.sendMessage(ChatColor.WHITE + display.save_line);
