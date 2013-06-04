@@ -20,7 +20,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 
-public class TimedMethod implements Runnable {
+public class myGuardDog$1 implements Runnable {
 	CommandSender sender = null;
 	String method = null;
 	Object[] os;
@@ -147,7 +147,7 @@ public class TimedMethod implements Runnable {
 
 	private void trackReactionBreaks(Event new_event) {
 		// if the type I.D. of the block logged in the event before the break is different from that block's current type I.D., log it as a break
-		if (Wiki.getItemIdAndData(new_event.objects[0], false)[0] != new_event.location.getBlock().getTypeId())
+		if (myPluginWiki.getItemIdAndData(new_event.objects[0], false)[0] != new_event.location.getBlock().getTypeId())
 			myGuardDog.events.add(new_event);
 	}
 
@@ -646,10 +646,10 @@ public class TimedMethod implements Runnable {
 				else
 					for (String object : objects)
 						for (String event_object : event.objects) {
-							Integer event_id = Wiki.getItemIdAndData(event_object, null)[0], object_id = Wiki.getItemIdAndData(object, null)[0];
+							Integer event_id = myPluginWiki.getItemIdAndData(event_object, null)[0], object_id = myPluginWiki.getItemIdAndData(object, null)[0];
 							if (event_id == null && object_id == null) {
-								event_id = Wiki.getEntityIdAndData(event_object)[0];
-								object_id = Wiki.getEntityIdAndData(object)[0];
+								event_id = myPluginWiki.getEntityIdAndData(event_object)[0];
+								object_id = myPluginWiki.getEntityIdAndData(object)[0];
 							}
 							if (event_id != null && event_id == object_id) {
 								objects_satisfied = true;
@@ -670,7 +670,7 @@ public class TimedMethod implements Runnable {
 					// If the event is a placement but the block at that location is no longer the same as what was placed, a later event must have changed it
 					// already.
 					// If the event is a removal but the block at the location is no longer air, a later event must have changed it already.
-					if ((event.isPlacement() && !new Integer[] { event.location.getBlock().getTypeId(), (int) event.location.getBlock().getData() }.equals(Wiki
+					if ((event.isPlacement() && !new Integer[] { event.location.getBlock().getTypeId(), (int) event.location.getBlock().getData() }.equals(myPluginWiki
 							.getItemIdAndData(event.objects, false)))
 							|| (event.isRemoval() && event.location.getBlock().getType() != Material.AIR))
 						continue;
@@ -691,7 +691,7 @@ public class TimedMethod implements Runnable {
 					// ORDER: remove all liquids (part 1), then remove all blocks that must be attached to something (part 1), then roll back solid
 					// blocks with sand and gravel organized from bottom to top for replacement (part 2) and top to bottom for removal (part 3), then
 					// replace blocks that must be attached to something (part 4), then replace liquids (part 4)
-					Boolean must_be_attached = Wiki.mustBeAttached(event.objects[0], null);
+					Boolean must_be_attached = myPluginWiki.mustBeAttached(event.objects[0], null);
 					if (must_be_attached == null) {
 						myGuardDog.console.sendMessage(ChatColor.RED + "I couldn't find the block that goes with \"" + event.objects[0] + "\"!");
 					} else if (event.isPlacement() && event.objects != null && (event.objects[0].equals("lava") || event.objects[0].equals("water")))
@@ -774,7 +774,7 @@ public class TimedMethod implements Runnable {
 		Event event = roll_back_events.get(iterations);
 		// this part restores mobs (but only non-hostile animals, of course)
 		if (event.action.equals("killed")) {
-			Integer[] id_and_data = Wiki.getEntityIdAndData(event.objects[0]);
+			Integer[] id_and_data = myPluginWiki.getEntityIdAndData(event.objects[0]);
 			if (id_and_data == null)
 				sender.sendMessage(ChatColor.DARK_RED + "What the heck is \"" + event.objects[0] + "\"?");
 			EntityType entity = EntityType.fromId(id_and_data[0]);
@@ -790,7 +790,7 @@ public class TimedMethod implements Runnable {
 		} // this part restores broken or destroyed blocks
 		else if (event.action.equals("broke") || event.action.equals("burned") || event.action.equals("creeper'd") || event.action.equals("T.N.T.'d")
 				|| event.action.equals("blew up")) {
-			Integer[] id_and_data = Wiki.getItemIdAndData(event.objects[0], false);
+			Integer[] id_and_data = myPluginWiki.getItemIdAndData(event.objects[0], false);
 			if (id_and_data != null) {
 				event.location.getBlock().setTypeId(id_and_data[0]);
 				// to convert an Integer to a Byte, I need to convert the Integer to a String, then to a Byte
