@@ -25,7 +25,7 @@ public class Event {
 	public boolean rolled_back;
 
 	public Event(String cause, String action, Block object, Boolean in_Creative_Mode) {
-		objects = new String[] { myPluginWiki.getItemName(object.getTypeId(), object.getData(), true, true, false) };
+		objects = new String[] { Wiki.getItemName(object.getTypeId(), object.getData(), true, true, false) };
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -34,9 +34,9 @@ public class Event {
 		// try getting the item name with the I.D. and data provided
 		if (object instanceof Villager)
 			// villager = 120
-			objects[0] = myPluginWiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true, true);
+			objects[0] = Wiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true, true);
 		else
-			objects[0] = myPluginWiki.getEntityName(object.getType().getTypeId(), (byte) -1, true, true);
+			objects[0] = Wiki.getEntityName(object.getType().getTypeId(), (byte) -1, true, true);
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -45,7 +45,7 @@ public class Event {
 		// derive the names of the items
 		for (int i = 0; i < items.length; i++) {
 			// if items[i].getAmount == 1, we should get the singular item name
-			objects[i] = myPluginWiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true, items[i].getAmount() == 1, false);
+			objects[i] = Wiki.getItemName(items[i].getTypeId(), items[i].getData().getData(), true, items[i].getAmount() == 1, false);
 		}
 		initializeOtherVariables(cause, action, location, in_Creative_Mode);
 	}

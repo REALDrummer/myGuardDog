@@ -12,6 +12,7 @@ import java.util.HashMap;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -146,7 +147,7 @@ public class TimedMethod implements Runnable {
 
 	private void trackReactionBreaks(Event new_event) {
 		// if the type I.D. of the block logged in the event before the break is different from that block's current type I.D., log it as a break
-		if (myPluginWiki.getItemIdAndData(new_event.objects[0], false)[0] != new_event.location.getBlock().getTypeId())
+		if (Wiki.getItemIdAndData(new_event.objects[0], false)[0] != new_event.location.getBlock().getTypeId())
 			myGuardDog.events.add(new_event);
 	}
 
@@ -645,10 +646,10 @@ public class TimedMethod implements Runnable {
 				else
 					for (String object : objects)
 						for (String event_object : event.objects) {
-							Integer event_id = myPluginWiki.getItemIdAndData(event_object, null)[0], object_id = myPluginWiki.getItemIdAndData(object, null)[0];
+							Integer event_id = Wiki.getItemIdAndData(event_object, null)[0], object_id = Wiki.getItemIdAndData(object, null)[0];
 							if (event_id == null && object_id == null) {
-								event_id = myPluginWiki.getEntityIdAndData(event_object)[0];
-								object_id = myPluginWiki.getEntityIdAndData(object)[0];
+								event_id = Wiki.getEntityIdAndData(event_object)[0];
+								object_id = Wiki.getEntityIdAndData(object)[0];
 							}
 							if (event_id != null && event_id == object_id) {
 								objects_satisfied = true;
@@ -664,103 +665,71 @@ public class TimedMethod implements Runnable {
 					radius_satisfied = true;
 				// set this event up for rollback
 				if (causes_satisfied && actions_satisfied && objects_satisfied && radius_satisfied && !event.rolled_back && event.canBeRolledBack()) {
-					// remove events that cancel each other out
-					boolean cancels_out = false;
-					for (Event opposite_event : roll_back_events)
-						if (opposite_event.objects.equals(event.objects) && opposite_event.location.equals(event.location))
-							if ((event.isPlacement() && opposite_event.isRemoval()) || (event.isRemoval() && opposite_event.isPlacement())) {
-								// TODO EXT TEMP
-								myGuardDog.console.sendMessage(ChatColor.YELLOW + "These events cancel out:");
-								myGuardDog.console.sendMessage(ChatColor.WHITE + opposite_event.save_line);
-								myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
-								// TODO END TEMP
-								roll_back_events.remove(opposite_event);
-								cancels_out = true;
+					// remove events that cancel each other out.
+					// First, try checking the block directly to see if it has been changed since these events.
+					// If the event is a placement but the block at that location is no longer the same as what was placed, a later event must have changed it
+					// already.
+					// If the event is a removal but the block at the location is no longer air, a later event must have changed it already.
+					if ((event.isPlacement() && !new Integer[] { event.location.getBlock().getTypeId(), (int) event.location.getBlock().getData() }.equals(Wiki
+							.getItemIdAndData(event.objects, false)))
+							|| (event.isRemoval() && event.location.getBlock().getType() != Material.AIR))
+						continue;
+					// if that event was not the last roll-back-able event to occur at that block, cancel it
+					else {
+						BufferedReader in =
+								new BufferedReader(new FileReader(new File(myGuardDog.position_logs_folder, "(" + event.x + ", " + event.z + ") "
+										+ event.world.getWorldFolder().getName() + ".txt")));
+						String new_save_line = in.readLine();
+						Event new_event = new Event(new_save_line);
+						while (new_save_line != null && !new_save_line.equals("") && !new_event.canBeRolledBack()) {
+							new_event = new Event(new_save_line);
+							new_save_line = in.readLine();
+						}
+						if (!event.equals(new_event))
+							continue;
+					}
+					// ORDER: remove all liquids (part 1), then remove all blocks that must be attached to something (part 1), then roll back solid
+					// blocks with sand and gravel organized from bottom to top for replacement (part 2) and top to bottom for removal (part 3), then
+					// replace blocks that must be attached to something (part 4), then replace liquids (part 4)
+					Boolean must_be_attached = Wiki.mustBeAttached(event.objects[0], null);
+					if (must_be_attached == null) {
+						myGuardDog.console.sendMessage(ChatColor.RED + "I couldn't find the block that goes with \"" + event.objects[0] + "\"!");
+					} else if (event.isPlacement() && event.objects != null && (event.objects[0].equals("lava") || event.objects[0].equals("water")))
+						roll_back_events.add(0, event);
+					else if (event.isPlacement() && event.objects != null && must_be_attached)
+						roll_back_events.add(event);
+					else if (event.isRemoval() && event.objects != null && !must_be_attached && !(event.objects[0].equals("lava") || event.objects[0].equals("water"))) {
+						boolean added = false;
+						// sort from bottom to top
+						for (int j = 0; j < roll_back_events_part2.size(); j++)
+							if (roll_back_events_part2.get(j).y >= event.y) {
+								roll_back_events_part2.add(j, event);
+								added = true;
 								break;
 							}
-					if (!cancels_out)
-						for (Event opposite_event : roll_back_events_part2)
-							if (opposite_event.objects.equals(event.objects) && opposite_event.location.equals(event.location))
-								if ((event.isPlacement() && opposite_event.isRemoval()) || (event.isRemoval() && opposite_event.isPlacement())) {
-									// TODO EXT TEMP
-									myGuardDog.console.sendMessage(ChatColor.YELLOW + "These events cancel out:");
-									myGuardDog.console.sendMessage(ChatColor.WHITE + opposite_event.save_line);
-									myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
-									// TODO END TEMP
-									roll_back_events_part2.remove(opposite_event);
-									cancels_out = true;
-									break;
-								}
-					if (!cancels_out)
-						for (Event opposite_event : roll_back_events_part3)
-							if (opposite_event.objects.equals(event.objects) && opposite_event.location.equals(event.location))
-								if ((event.isPlacement() && opposite_event.isRemoval()) || (event.isRemoval() && opposite_event.isPlacement())) {
-									// TODO EXT TEMP
-									myGuardDog.console.sendMessage(ChatColor.YELLOW + "These events cancel out:");
-									myGuardDog.console.sendMessage(ChatColor.WHITE + opposite_event.save_line);
-									myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
-									// TODO END TEMP
-									roll_back_events_part3.remove(opposite_event);
-									cancels_out = true;
-									break;
-								}
-					if (!cancels_out)
-						for (Event opposite_event : roll_back_events_part4)
-							if (opposite_event.objects.equals(event.objects) && opposite_event.location.equals(event.location))
-								if ((event.isPlacement() && opposite_event.isRemoval()) || (event.isRemoval() && opposite_event.isPlacement())) {
-									// TODO EXT TEMP
-									myGuardDog.console.sendMessage(ChatColor.YELLOW + "These events cancel out:");
-									myGuardDog.console.sendMessage(ChatColor.WHITE + opposite_event.save_line);
-									myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
-									// TODO END TEMP
-									roll_back_events_part4.remove(opposite_event);
-									cancels_out = true;
-									break;
-								}
-					if (!cancels_out) {
-						// ORDER: remove all liquids (part 1), then remove all blocks that must be attached to something (part 1), then roll back solid
-						// blocks with sand and gravel organized from bottom to top for replacement (part 2) and top to bottom for removal (part 3), then
-						// replace blocks that must be attached to something (part 4), then replace liquids (part 4)
-						Boolean must_be_attached = myPluginWiki.mustBeAttached(event.objects[0], null);
-						if (must_be_attached == null) {
-							myGuardDog.console.sendMessage(ChatColor.RED + "I couldn't find the block that goes with \"" + event.objects[0] + "\"!");
-						} else if (event.isPlacement() && event.objects != null && (event.objects[0].equals("lava") || event.objects[0].equals("water")))
-							roll_back_events.add(0, event);
-						else if (event.isPlacement() && event.objects != null && must_be_attached)
-							roll_back_events.add(event);
-						else if (event.isRemoval() && event.objects != null && !must_be_attached && !(event.objects[0].equals("lava") || event.objects[0].equals("water"))) {
-							boolean added = false;
-							// sort from bottom to top
-							for (int j = 0; j < roll_back_events_part2.size(); j++)
-								if (roll_back_events_part2.get(j).y >= event.y) {
-									roll_back_events_part2.add(j, event);
-									added = true;
-									break;
-								}
-							// if it's still not added, add it to the end
-							if (!added)
-								roll_back_events_part2.add(event);
-						} else if (event.isPlacement() && event.objects != null && !must_be_attached && !(event.objects[0].equals("lava") || event.objects[0].equals("water"))) {
-							boolean added = false;
-							// sort from top to bottom
-							for (int j = 0; j < roll_back_events_part3.size(); j++)
-								if (roll_back_events_part3.get(j).y <= event.y) {
-									roll_back_events_part3.add(j, event);
-									added = true;
-									break;
-								} // if it's still not added, add it to the end
-							if (!added)
-								roll_back_events_part3.add(event);
-						} else if (event.isRemoval() && event.objects != null && must_be_attached)
-							roll_back_events_part4.add(0, event);
-						else if (event.isRemoval() && event.objects != null && (event.objects[0].equals("lava") || event.objects[0].equals("water")))
-							roll_back_events_part4.add(event);
-						else {
-							myGuardDog.console.sendMessage(ChatColor.DARK_RED
-									+ "Hey. There was this weird event. I didn't know where to insert it in the ordered roll back, so I put it at the end.");
-							myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
-							roll_back_events_part4.add(event);
-						}
+						// if it's still not added, add it to the end
+						if (!added)
+							roll_back_events_part2.add(event);
+					} else if (event.isPlacement() && event.objects != null && !must_be_attached && !(event.objects[0].equals("lava") || event.objects[0].equals("water"))) {
+						boolean added = false;
+						// sort from top to bottom
+						for (int j = 0; j < roll_back_events_part3.size(); j++)
+							if (roll_back_events_part3.get(j).y <= event.y) {
+								roll_back_events_part3.add(j, event);
+								added = true;
+								break;
+							} // if it's still not added, add it to the end
+						if (!added)
+							roll_back_events_part3.add(event);
+					} else if (event.isRemoval() && event.objects != null && must_be_attached)
+						roll_back_events_part4.add(0, event);
+					else if (event.isRemoval() && event.objects != null && (event.objects[0].equals("lava") || event.objects[0].equals("water")))
+						roll_back_events_part4.add(event);
+					else {
+						myGuardDog.console.sendMessage(ChatColor.DARK_RED
+								+ "Hey. There was this weird event. I didn't know where to insert it in the ordered roll back, so I put it at the end.");
+						myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
+						roll_back_events_part4.add(event);
 					}
 				}
 			}
@@ -805,7 +774,7 @@ public class TimedMethod implements Runnable {
 		Event event = roll_back_events.get(iterations);
 		// this part restores mobs (but only non-hostile animals, of course)
 		if (event.action.equals("killed")) {
-			Integer[] id_and_data = myPluginWiki.getEntityIdAndData(event.objects[0]);
+			Integer[] id_and_data = Wiki.getEntityIdAndData(event.objects[0]);
 			if (id_and_data == null)
 				sender.sendMessage(ChatColor.DARK_RED + "What the heck is \"" + event.objects[0] + "\"?");
 			EntityType entity = EntityType.fromId(id_and_data[0]);
@@ -821,7 +790,7 @@ public class TimedMethod implements Runnable {
 		} // this part restores broken or destroyed blocks
 		else if (event.action.equals("broke") || event.action.equals("burned") || event.action.equals("creeper'd") || event.action.equals("T.N.T.'d")
 				|| event.action.equals("blew up")) {
-			Integer[] id_and_data = myPluginWiki.getItemIdAndData(event.objects[0], false);
+			Integer[] id_and_data = Wiki.getItemIdAndData(event.objects[0], false);
 			if (id_and_data != null) {
 				event.location.getBlock().setTypeId(id_and_data[0]);
 				// to convert an Integer to a Byte, I need to convert the Integer to a String, then to a Byte
@@ -1145,6 +1114,12 @@ public class TimedMethod implements Runnable {
 				out = new BufferedWriter(new FileWriter(log_file, true));
 				iterations = 0;
 				first_iteration = false;
+				// TODO TEMP
+				for (File log : updated_events.keySet()) {
+					myGuardDog.console.sendMessage(ChatColor.YELLOW + log.getName());
+					for (String line : updated_events.get(log))
+						myGuardDog.console.sendMessage(ChatColor.WHITE + line);
+				}
 			}
 			for (int i = 0; i < 100; i++) {
 				// if all the events for this file have been written,...
