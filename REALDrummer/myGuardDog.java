@@ -258,15 +258,15 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			objects[objects.length - 1] = objects[objects.length - 1].substring(5);
 		}
 		// for 2-item lists
-		// ensure that the Wiki can't return an item name for this whole list; if it can, it means it's not actually a two-item list, but a single item with the
+		// ensure that the myPluginWiki can't return an item name for this whole list; if it can, it means it's not actually a two-item list, but a single item with the
 		// word "and" in the name (like "flint and steel")
-		else if (list.contains(" and ") && Wiki.getItemIdAndData(list, null) == null) {
+		else if (list.contains(" and ") && myPluginWiki.getItemIdAndData(list, null) == null) {
 			String[] temp = list.split(" and ");
 			objects = new String[2];
 			// if one or both of the items have an " and " in the name
 			if (temp.length > 2) {
 				// if the first two terms form an item, put them together to form the first object
-				if (Wiki.getItemIdAndData(temp[0] + " and " + temp[1], null) != null) {
+				if (myPluginWiki.getItemIdAndData(temp[0] + " and " + temp[1], null) != null) {
 					objects[0] = temp[0] + " and " + temp[1];
 					// if the length of temp is 4, both terms must have contained an " and "
 					if (temp.length == 4)
@@ -568,18 +568,18 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			else
 				z++;
 			Location location = new Location(break_event.world, x, break_event.y, z);
-			if (Wiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
+			if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 				server.getScheduler().scheduleSyncDelayedTask(
 						this,
-						new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", Wiki.getItemName(location.getBlock(), true, true, false),
+						new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true, false),
 								location, break_event.in_Creative_Mode)), 1);
 		}
 		// check the top of the broken block for possible reaction breaks
 		Location location = new Location(break_event.world, break_event.x, break_event.y + 1, break_event.z);
-		if (Wiki.mustBeAttached(location.getBlock(), null) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
+		if (myPluginWiki.mustBeAttached(location.getBlock(), null) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 			server.getScheduler().scheduleSyncDelayedTask(
 					this,
-					new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", Wiki.getItemName(location.getBlock(), true, true, false),
+					new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true, false),
 							location, break_event.in_Creative_Mode)), 1);
 	}
 
@@ -706,7 +706,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		} // cancel someone trying to place a hopper below a locked block with an inventory
 			// translation: if the player is placing a hopper, the block above the hopper is a lockable container owned by someone else, the player placing the
 			// hopper isn't on the container owner's trust list, and the player placing the hopper isn't an admin
-		else if (event.getBlock().getType() == Material.HOPPER && Wiki.isLockable(event.getBlock().getRelative(BlockFace.UP), true)
+		else if (event.getBlock().getType() == Material.HOPPER && myPluginWiki.isLockable(event.getBlock().getRelative(BlockFace.UP), true)
 				&& locked_blocks.containsKey(event.getBlock().getRelative(BlockFace.UP))
 				&& !event.getPlayer().getName().equals(locked_blocks.get(event.getBlock().getRelative(BlockFace.UP)))
 				&& trust_list.get(locked_blocks.get(event.getBlock().getRelative(BlockFace.UP))).contains(event.getPlayer().getName())
@@ -716,16 +716,16 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					ChatColor.RED + "Ha ha! You make me laugh! I'm not that stupid. You can't put a hopper below someone else's locked container and steal all their stuff.");
 		} else if (event.getPlayer() != null) {
 			// lock lockable blocks automatically
-			if (Wiki.isLockable(event.getBlock(), null)) {
+			if (myPluginWiki.isLockable(event.getBlock(), null)) {
 				locked_blocks.put(event.getBlock(), event.getPlayer().getName());
-				event.getPlayer().sendMessage(ChatColor.YELLOW + "I locked your " + Wiki.getItemName(event.getBlock(), false, true, true) + ".");
+				event.getPlayer().sendMessage(ChatColor.YELLOW + "I locked your " + myPluginWiki.getItemName(event.getBlock(), false, true, true) + ".");
 			}
 			// log placements
 			// log fire placement as ignition and don't log air placement because that makes no sense!
 			if (event.getBlock().getType() != Material.AIR && event.getBlock().getType() != Material.FIRE) {
 				events.add(new Event(event.getPlayer().getName(), "placed", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 				if (event.getBlockReplacedState().getType() != Material.AIR)
-					events.add(new Event(event.getPlayer().getName(), "covered", Wiki.getItemName(event.getBlockReplacedState().getTypeId(), event.getBlockReplacedState()
+					events.add(new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event.getBlockReplacedState()
 							.getData().getData(), true, true, false), event.getBlock().getLocation(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
 			} // consider "placing fire" the same as "setting fire to" something, but don't bother logging T.N.T. ignition
 			else if (event.getBlock().getType() == Material.FIRE && event.getBlockReplacedState().getType() != Material.TNT)
@@ -743,7 +743,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			cause = ((Player) event.getRemover()).getName();
 			in_Creative_Mode = ((Player) event.getRemover()).getGameMode().equals(GameMode.CREATIVE);
 		} else
-			cause = Wiki.getEntityName(event.getRemover(), true, true);
+			cause = myPluginWiki.getEntityName(event.getRemover(), true, true);
 		events.add(new Event(cause, "took down", event.getEntity(), in_Creative_Mode));
 	}
 
@@ -760,7 +760,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		if (event.isCancelled())
 			return;
 		// if the block it's trying to spread to can't be broken by liquds, it won't actually spread, so cancel the event
-		if (!Wiki.canBeBrokenByLiquids(event.getToBlock()) && !Wiki.canBeBrokenByLiquids(event.getBlock())) {
+		if (!myPluginWiki.canBeBrokenByLiquids(event.getToBlock()) && !myPluginWiki.canBeBrokenByLiquids(event.getBlock())) {
 			event.setCancelled(true);
 			return;
 		}
@@ -807,7 +807,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		if (event.isCancelled())
 			return;
 		// identify the cause of the event
-		String cause = Wiki.getEntityName(event.getEntity(), true, true), action = "blew up";
+		String cause = myPluginWiki.getEntityName(event.getEntity(), true, true), action = "blew up";
 		if (event.getEntityType() == EntityType.CREEPER) {
 			double distance = 10000;
 			for (Entity entity : event.getEntity().getNearbyEntities(6, 6, 6))
@@ -1021,7 +1021,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				inspect(event.getPlayer(), position);
 		} // (un)lock lockable items
 		else if (event.getAction() == Action.LEFT_CLICK_BLOCK && event.getPlayer().getItemInHand().getType() == Material.IRON_INGOT
-				&& Wiki.isLockable(event.getClickedBlock(), null)) {
+				&& myPluginWiki.isLockable(event.getClickedBlock(), null)) {
 			Block block = event.getClickedBlock();
 			// if the block is a wooden door, make sure to check the bottom block of the door
 			if (event.getClickedBlock().getType() == Material.WOODEN_DOOR && event.getClickedBlock().getRelative(BlockFace.DOWN).getType() == Material.WOODEN_DOOR)
@@ -1029,7 +1029,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			// if the thing isn't already locked, try to lock it
 			if (!locked_blocks.containsKey(block)) {
 				locked_blocks.put(block, event.getPlayer().getName());
-				event.getPlayer().sendMessage(ChatColor.YELLOW + "Your " + Wiki.getItemName(block, false, true, true) + " is now secure.");
+				event.getPlayer().sendMessage(ChatColor.YELLOW + "Your " + myPluginWiki.getItemName(block, false, true, true) + " is now secure.");
 				// if the thing is already locked, try to unlock it
 			} else if (locked_blocks.get(block).equals(event.getPlayer().getName()) || trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName())
 					|| event.getPlayer().hasPermission("myguarddog.admin")) {
@@ -1037,7 +1037,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				if (!locked_blocks.get(block).equals(event.getPlayer().getName())) {
 					Player owner = server.getPlayerExact(locked_blocks.get(block));
 					String message =
-							"&eHey, " + event.getPlayer().getName() + " unlocked your " + Wiki.getItemName(block, false, true, true) + " at (" + block.getX() + ", "
+							"&eHey, " + event.getPlayer().getName() + " unlocked your " + myPluginWiki.getItemName(block, false, true, true) + " at (" + block.getX() + ", "
 									+ block.getY() + ", " + block.getZ() + ") in \"" + block.getWorld().getWorldFolder().getName() + "\".";
 					if (owner.isOnline())
 						owner.sendMessage(message);
@@ -1049,16 +1049,16 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 						info_messages.put(owner.getName(), messages);
 					}
 					// send a confirmation message
-					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked " + locked_blocks.get(block) + "'s " + Wiki.getItemName(block, false, true, true) + ".");
+					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked " + locked_blocks.get(block) + "'s " + myPluginWiki.getItemName(block, false, true, true) + ".");
 				} else
-					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked your " + Wiki.getItemName(block, false, true, true) + ".");
+					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked your " + myPluginWiki.getItemName(block, false, true, true) + ".");
 				// unlock the block
 				locked_blocks.remove(block);
 			} // if the thing is already locked and this player can't unlock it, cancel the event
 			else {
 				event.setCancelled(true);
 				event.getPlayer().sendMessage(
-						ChatColor.RED + "Sorry, but this " + Wiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
+						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
 								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to unlock it.");
 			}
 		} // log switch usage and prevent the use of locked items
@@ -1068,7 +1068,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
 				event.setCancelled(true);
 				event.getPlayer().sendMessage(
-						ChatColor.RED + "Sorry, but this " + Wiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
+						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
 								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
 			} else
 				events.add(new Event(event.getPlayer().getName(), "stepped on", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
@@ -1086,7 +1086,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
 					event.setCancelled(true);
 					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this " + Wiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
+							ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
 									+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
 				} else
 					events.add(new Event(event.getPlayer().getName(), "pressed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
@@ -1217,7 +1217,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			for (BlockState block : event.getBlocks()) {
 				// differentiate between different parts of the tree so events involving it can be rolled back or restored
 				if (object.equals("a tree"))
-					object = "a tree (" + Wiki.getItemName(block.getTypeId(), block.getData().getData(), true, true, false) + ")";
+					object = "a tree (" + myPluginWiki.getItemName(block.getTypeId(), block.getData().getData(), true, true, false) + ")";
 				events.add(new Event(cause, "grew", object, block.getBlock().getLocation(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 			}
 		}
@@ -1350,7 +1350,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				Block block = (Block) locked_blocks.keySet().toArray()[i];
 				// save line format:
 				// [player] locked [block type] at ([x], [y], [z]) in "[world]".
-				out.write(locked_blocks.get(block) + " locked " + Wiki.getItemName(block, false, true, false) + " at (" + block.getX() + ", " + block.getY() + ", "
+				out.write(locked_blocks.get(block) + " locked " + myPluginWiki.getItemName(block, false, true, false) + " at (" + block.getX() + ", " + block.getY() + ", "
 						+ block.getZ() + " in \"" + block.getWorld().getWorldFolder().getName() + "\".");
 				if (i < locked_blocks.size() - 1)
 					out.newLine();
