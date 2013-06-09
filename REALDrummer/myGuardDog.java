@@ -52,7 +52,6 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.vehicle.VehicleMoveEvent;
 import org.bukkit.event.world.StructureGrowEvent;
 import org.bukkit.event.world.WorldSaveEvent;
@@ -73,7 +72,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public static File logs_folder, chrono_logs_folder, position_logs_folder, cause_logs_folder;
 	public static boolean roll_back_in_progress = false, save_in_progress = false, hard_save = false;
 	// player_to_inform_of_[...]: keys=player names and values=admin name or "console" who performed the command
-	private static HashMap<String, GameMode> offline_player_gamemodes = new HashMap<String, GameMode>(), gamemodes_to_change = new HashMap<String, GameMode>();
 	private static HashMap<String, String> players_to_inform_of_halting = new HashMap<String, String>(), players_to_inform_of_muting = new HashMap<String, String>();
 	// players_questioned_about_rollback = new HashMap<player's name or "the console", parameters of the rollback>
 	private static HashMap<String, String[]> players_questioned_about_rollback = new HashMap<String, String[]>();
@@ -106,6 +104,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		// 5 minutes = 300,000ms
 		autosave_timer = new Timer(300000, this);
 		autosave_timer.start();
+		loadTheLockedBlocks(console);
+		loadTheTemporaryData();
 		// done enabling
 		String enable_message = enable_messages[(int) (Math.random() * enable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + enable_message);
@@ -117,6 +117,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public void onDisable() {
 		// save the server data
 		new myGuardDog$1(console, "hard save", true, null).run();
+		saveTheLockedBlocks(console, true);
+		saveTheTemporaryData();
 		// done disabling
 		String disable_message = disable_messages[(int) (Math.random() * disable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + disable_message);
@@ -159,12 +161,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					sender.sendMessage(ChatColor.RED + "You forgot to tell me who to halt!");
 			else
 				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to halt people.");
-		} else if (command.equalsIgnoreCase("gamemode") || command.equalsIgnoreCase("gm")) {
-			if (!(sender instanceof Player) || sender.isOp() || sender.hasPermission("myguarddog.admin"))
-				changeGameMode(sender);
-			else
-				sender.sendMessage(ChatColor.RED + "Sorry, but you're not allowed to change gamemodes.");
-			return true;
 		} else if ((command.equalsIgnoreCase("mGD") || command.equalsIgnoreCase("myGuardDog")) && parameters.length > 1 && parameters[0].equalsIgnoreCase("save")
 				&& (parameters[1].equalsIgnoreCase("logs") || (parameters.length > 2 && parameters[1].equalsIgnoreCase("the") && parameters[2].equalsIgnoreCase("logs")))) {
 			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")) {
@@ -589,12 +585,9 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	@EventHandler
-	public void recordThePlayersGameModeBeforeTheyLogOff(PlayerQuitEvent event) {
-		offline_player_gamemodes.put(event.getPlayer().getName(), event.getPlayer().getGameMode());
-	}
-
-	@EventHandler
 	public void informPlayersTheyHaveBeenMutedAndOrHalted(PlayerJoinEvent event) {
+		if (!trust_list.containsKey(event.getPlayer().getName()))
+			trust_list.put(event.getPlayer().getName(), new ArrayList<String>());
 		if (players_to_inform_of_halting.containsKey(event.getPlayer().getName()))
 			if (players_to_inform_of_muting.containsKey(event.getPlayer().getName()))
 				if (players_to_inform_of_halting.get(event.getPlayer().getName()).equals(players_to_inform_of_muting.get(event.getPlayer().getName())))
@@ -667,6 +660,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logBlockBreakAndInspect(BlockBreakEvent event) {
+		// TODO make sure that people can't break locked blocks through reaction blocks
 		if (event.isCancelled())
 			return;
 		// inspect
@@ -724,6 +718,152 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			else if (event.getBlock().getType() == Material.FIRE && event.getBlockReplacedState().getType() != Material.TNT)
 				events.add(new Event(event.getPlayer().getName(), "set fire to", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
+	public void logPlayerInteractionsAndInspect(PlayerInteractEvent event) {
+		if (event.isCancelled())
+			return;
+		// inspect
+		if ((event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) && inspecting_players.containsKey(event.getPlayer().getName())) {
+			event.setCancelled(true);
+			Location position = null;
+			if (event.getClickedBlock() != null)
+				position = event.getClickedBlock().getLocation();
+			else
+				position = event.getPlayer().getTargetBlock(null, 1024).getLocation();
+			if (position.getBlock().getTypeId() == 0)
+				event.getPlayer().sendMessage(ChatColor.RED + "Sorry, but I can't see that far!");
+			else
+				inspect(event.getPlayer(), position);
+		} // (un)lock lockable items
+		else if (event.getAction() == Action.LEFT_CLICK_BLOCK && event.getPlayer().getItemInHand().getType() == Material.IRON_INGOT
+				&& myPluginWiki.isLockable(event.getClickedBlock(), null)) {
+			event.setCancelled(true);
+			Block block = event.getClickedBlock();
+			// if the block is a wooden door, make sure to check the bottom block of the door
+			if (event.getClickedBlock().getType() == Material.WOODEN_DOOR && event.getClickedBlock().getRelative(BlockFace.DOWN).getType() == Material.WOODEN_DOOR)
+				block = event.getClickedBlock().getRelative(BlockFace.DOWN);
+			// if the thing isn't already locked, try to lock it
+			if (!locked_blocks.containsKey(block)) {
+				locked_blocks.put(block, event.getPlayer().getName());
+				event.getPlayer().sendMessage(ChatColor.YELLOW + "*click* Your " + myPluginWiki.getItemName(block, false, true, true) + " is now locked.");
+				// if the thing is already locked, try to unlock it
+			} else if (locked_blocks.get(block).equals(event.getPlayer().getName()) || trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName())
+					|| event.getPlayer().hasPermission("myguarddog.admin")) {
+				// if the owner is not the one unlocking the locked block, inform the owner
+				if (!locked_blocks.get(block).equals(event.getPlayer().getName())) {
+					Player owner = server.getPlayerExact(locked_blocks.get(block));
+					String message =
+							"Hey, " + event.getPlayer().getName() + " unlocked your " + myPluginWiki.getItemName(block, false, true, true) + " at (" + block.getX() + ", "
+									+ block.getY() + ", " + block.getZ() + ") in \"" + block.getWorld().getWorldFolder().getName() + "\".";
+					if (owner.isOnline())
+						owner.sendMessage(ChatColor.YELLOW + message);
+					else {
+						ArrayList<String> messages = info_messages.get(owner.getName());
+						if (messages == null)
+							messages = new ArrayList<String>();
+						messages.add("&e" + message);
+						info_messages.put(owner.getName(), messages);
+					}
+					// send a confirmation message
+					event.getPlayer().sendMessage(
+							ChatColor.YELLOW + "You unlocked " + locked_blocks.get(block) + "'s " + myPluginWiki.getItemName(block, false, true, true) + ".");
+				} else
+					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked your " + myPluginWiki.getItemName(block, false, true, true) + ".");
+				// unlock the block
+				locked_blocks.remove(block);
+			} // if the thing is already locked and this player can't unlock it, cancel the event
+			else {
+				event.setCancelled(true);
+				event.getPlayer().sendMessage(
+						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " belongs to "
+								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to unlock it.");
+			}
+		} // log switch usage and prevent the use of locked items
+		else if (event.getAction() == Action.PHYSICAL
+				&& (event.getClickedBlock().getType() == Material.STONE_PLATE || event.getClickedBlock().getType() == Material.WOOD_PLATE))
+			if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+					&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
+					&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+				event.setCancelled(true);
+				event.getPlayer().sendMessage(
+						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " belongs to "
+								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+			} else
+				events.add(new Event(event.getPlayer().getName(), "stepped on", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+		else if (event.getAction() == Action.RIGHT_CLICK_BLOCK && !event.getPlayer().isSneaking())
+			if (event.getClickedBlock().getType() == Material.LEVER)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
+						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this lever belongs to " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} else
+					events.add(new Event(event.getPlayer().getName(), "flipped", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			else if (event.getClickedBlock().getType() == Material.STONE_BUTTON || event.getClickedBlock().getType() == Material.WOOD_BUTTON)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
+						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " belongs to "
+									+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} else
+					events.add(new Event(event.getPlayer().getName(), "pressed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			else if (event.getClickedBlock().getType() == Material.WOODEN_DOOR) {
+				// if it's the top block of a door, data=8 or 9; if you're closing a door, data=4-7; if you're opening a door, data=0-3
+				Block block = event.getClickedBlock();
+				if (block.getData() >= 8)
+					block = new Location(block.getLocation().getWorld(), block.getLocation().getX(), block.getLocation().getY() - 1, block.getLocation().getZ()).getBlock();
+				if (locked_blocks.containsKey(block) && !locked_blocks.get(block).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName()) && !event.getPlayer().hasPermission("myguarddog.admin")) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(ChatColor.RED + "Sorry, but this wooden door belongs to " + locked_blocks.get(block) + " and you're not allowed to use it.");
+				} else if (block.getData() < 4)
+					events.add(new Event(event.getPlayer().getName(), "opened", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+				else
+					events.add(new Event(event.getPlayer().getName(), "closed", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			} else if (event.getClickedBlock().getType() == Material.TRAP_DOOR)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
+						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this trapdoor belongs to " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} // if you're closing a trapdoor, data=4-7 or 12-15; if you're opening a trapdoor, data=0-3 or 8-11
+				else if (event.getClickedBlock().getData() < 4 || (event.getClickedBlock().getData() >= 8 && event.getClickedBlock().getData() <= 11))
+					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+				else
+					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			else if (event.getClickedBlock().getType() == Material.FENCE_GATE)
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
+						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this fence gate belongs to " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} // if you're closing a fence gate, data=4-7; if you're opening a fence gate, data=0-3
+				else if (event.getClickedBlock().getData() < 4)
+					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+				else
+					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			// log plant bonemealing (bonemeal=351:15)
+			else if (event.getPlayer().getItemInHand().getTypeId() == 351
+					&& event.getPlayer().getItemInHand().getData().getData() == 15
+					&& (event.getClickedBlock().getType() == Material.SAPLING || event.getClickedBlock().getType() == Material.WHEAT
+							|| event.getClickedBlock().getType() == Material.CARROT || event.getClickedBlock().getType() == Material.POTATO
+							|| event.getClickedBlock().getType() == Material.BROWN_MUSHROOM || event.getClickedBlock().getType() == Material.RED_MUSHROOM
+							|| event.getClickedBlock().getType() == Material.GRASS || event.getClickedBlock().getType() == Material.COCOA
+							|| event.getClickedBlock().getType() == Material.MELON_STEM || event.getClickedBlock().getType() == Material.PUMPKIN_STEM || event
+							.getClickedBlock().getType() == Material.NETHER_WARTS))
+				events.add(new Event(event.getPlayer().getName(), "bonemealed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			// log chest opening and closing
+			else if ((event.getClickedBlock().getType() == Material.CHEST || event.getClickedBlock().getType() == Material.LOCKED_CHEST
+					|| event.getClickedBlock().getType() == Material.TRAPPED_CHEST || event.getClickedBlock().getType() == Material.ENDER_CHEST)
+					&& !event.getPlayer().isSneaking())
+				events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -997,146 +1137,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
-	public void logPlayerInteractionsAndInspect(PlayerInteractEvent event) {
-		if (event.isCancelled())
-			return;
-		// inspect
-		if ((event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) && inspecting_players.containsKey(event.getPlayer().getName())) {
-			event.setCancelled(true);
-			Location position = null;
-			if (event.getClickedBlock() != null)
-				position = event.getClickedBlock().getLocation();
-			else
-				position = event.getPlayer().getTargetBlock(null, 1024).getLocation();
-			if (position.getBlock().getTypeId() == 0)
-				event.getPlayer().sendMessage(ChatColor.RED + "Sorry, but I can't see that far!");
-			else
-				inspect(event.getPlayer(), position);
-		} // (un)lock lockable items
-		else if (event.getAction() == Action.LEFT_CLICK_BLOCK && event.getPlayer().getItemInHand().getType() == Material.IRON_INGOT
-				&& myPluginWiki.isLockable(event.getClickedBlock(), null)) {
-			Block block = event.getClickedBlock();
-			// if the block is a wooden door, make sure to check the bottom block of the door
-			if (event.getClickedBlock().getType() == Material.WOODEN_DOOR && event.getClickedBlock().getRelative(BlockFace.DOWN).getType() == Material.WOODEN_DOOR)
-				block = event.getClickedBlock().getRelative(BlockFace.DOWN);
-			// if the thing isn't already locked, try to lock it
-			if (!locked_blocks.containsKey(block)) {
-				locked_blocks.put(block, event.getPlayer().getName());
-				event.getPlayer().sendMessage(ChatColor.YELLOW + "Your " + myPluginWiki.getItemName(block, false, true, true) + " is now secure.");
-				// if the thing is already locked, try to unlock it
-			} else if (locked_blocks.get(block).equals(event.getPlayer().getName()) || trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName())
-					|| event.getPlayer().hasPermission("myguarddog.admin")) {
-				// if the owner is not the one unlocking the locked block, inform the owner
-				if (!locked_blocks.get(block).equals(event.getPlayer().getName())) {
-					Player owner = server.getPlayerExact(locked_blocks.get(block));
-					String message =
-							"&eHey, " + event.getPlayer().getName() + " unlocked your " + myPluginWiki.getItemName(block, false, true, true) + " at (" + block.getX() + ", "
-									+ block.getY() + ", " + block.getZ() + ") in \"" + block.getWorld().getWorldFolder().getName() + "\".";
-					if (owner.isOnline())
-						owner.sendMessage(message);
-					else {
-						ArrayList<String> messages = info_messages.get(owner.getName());
-						if (messages == null)
-							messages = new ArrayList<String>();
-						messages.add(message);
-						info_messages.put(owner.getName(), messages);
-					}
-					// send a confirmation message
-					event.getPlayer().sendMessage(
-							ChatColor.YELLOW + "You unlocked " + locked_blocks.get(block) + "'s " + myPluginWiki.getItemName(block, false, true, true) + ".");
-				} else
-					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked your " + myPluginWiki.getItemName(block, false, true, true) + ".");
-				// unlock the block
-				locked_blocks.remove(block);
-			} // if the thing is already locked and this player can't unlock it, cancel the event
-			else {
-				event.setCancelled(true);
-				event.getPlayer().sendMessage(
-						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
-								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to unlock it.");
-			}
-		} // log switch usage and prevent the use of locked items
-		else if (event.getAction() == Action.PHYSICAL
-				&& (event.getClickedBlock().getType() == Material.STONE_PLATE || event.getClickedBlock().getType() == Material.WOOD_PLATE))
-			if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-					&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
-				event.setCancelled(true);
-				event.getPlayer().sendMessage(
-						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
-								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-			} else
-				events.add(new Event(event.getPlayer().getName(), "stepped on", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-		else if (event.getAction() == Action.RIGHT_CLICK_BLOCK && !event.getPlayer().isSneaking())
-			if (event.getClickedBlock().getType() == Material.LEVER)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this lever is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} else
-					events.add(new Event(event.getPlayer().getName(), "flipped", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getClickedBlock().getType() == Material.STONE_BUTTON || event.getClickedBlock().getType() == Material.WOOD_BUTTON)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " is locked by "
-									+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} else
-					events.add(new Event(event.getPlayer().getName(), "pressed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getClickedBlock().getType() == Material.WOODEN_DOOR) {
-				// if it's the top block of a door, data=8 or 9; if you're closing a door, data=4-7; if you're opening a door, data=0-3
-				Block block = event.getClickedBlock();
-				if (block.getData() >= 8)
-					block = new Location(block.getLocation().getWorld(), block.getLocation().getX(), block.getLocation().getY() - 1, block.getLocation().getZ()).getBlock();
-				if (locked_blocks.containsKey(block) && !locked_blocks.get(block).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this wooden door is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} else if (block.getData() < 4)
-					events.add(new Event(event.getPlayer().getName(), "opened", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				else
-					events.add(new Event(event.getPlayer().getName(), "closed", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			} else if (event.getClickedBlock().getType() == Material.TRAP_DOOR)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this trapdoor is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} // if you're closing a trapdoor, data=4-7 or 12-15; if you're opening a trapdoor, data=0-3 or 8-11
-				else if (event.getClickedBlock().getData() < 4 || (event.getClickedBlock().getData() >= 8 && event.getClickedBlock().getData() <= 11))
-					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				else
-					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getClickedBlock().getType() == Material.FENCE_GATE)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this fence gate is locked by " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} // if you're closing a fence gate, data=4-7; if you're opening a fence gate, data=0-3
-				else if (event.getClickedBlock().getData() < 4)
-					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				else
-					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			// log plant bonemealing (bonemeal=351:15)
-			else if (event.getPlayer().getItemInHand().getTypeId() == 351
-					&& event.getPlayer().getItemInHand().getData().getData() == 15
-					&& (event.getClickedBlock().getType() == Material.SAPLING || event.getClickedBlock().getType() == Material.WHEAT
-							|| event.getClickedBlock().getType() == Material.CARROT || event.getClickedBlock().getType() == Material.POTATO
-							|| event.getClickedBlock().getType() == Material.BROWN_MUSHROOM || event.getClickedBlock().getType() == Material.RED_MUSHROOM
-							|| event.getClickedBlock().getType() == Material.GRASS || event.getClickedBlock().getType() == Material.COCOA
-							|| event.getClickedBlock().getType() == Material.MELON_STEM || event.getClickedBlock().getType() == Material.PUMPKIN_STEM || event
-							.getClickedBlock().getType() == Material.NETHER_WARTS))
-				events.add(new Event(event.getPlayer().getName(), "bonemealed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			// log chest opening and closing
-			else if (event.getClickedBlock().getType() == Material.CHEST || event.getClickedBlock().getType() == Material.LOCKED_CHEST
-					|| event.getClickedBlock().getType() == Material.TRAPPED_CHEST || event.getClickedBlock().getType() == Material.ENDER_CHEST)
-				events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
-	}
-
-	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logEndermanBlockInteractionsAndSandAndGravelFalling(EntityChangeBlockEvent event) {
 		if (event.isCancelled())
 			return;
@@ -1322,6 +1322,14 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName() + " loaded the server's locked blocks from file, but there were no locked blocks on file.");
 	}
 
+	public void loadTheTemporaryData() {
+		// TODO
+		// TODO TEMP
+		for (Player player : server.getOnlinePlayers())
+			if (!trust_list.containsKey(player.getName()))
+				trust_list.put(player.getName(), new ArrayList<String>());
+	}
+
 	// saving
 	public void saveTheLockedBlocks(CommandSender sender, boolean display_message) {
 		// check the warps file
@@ -1373,157 +1381,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		}
 	}
 
-	// plugin commands
-	public static void changeGameMode(CommandSender sender) {
-		if (parameters.length == 0)
-			if (sender instanceof Player)
-				if (((Player) sender).getGameMode() == GameMode.CREATIVE) {
-					((Player) sender).setGameMode(GameMode.SURVIVAL);
-					sender.sendMessage(ChatColor.YELLOW + "You're now in Survival Mode. Watch out for monsters.");
-					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Survival Mode.");
-				} else {
-					((Player) sender).setGameMode(GameMode.CREATIVE);
-					sender.sendMessage(ChatColor.YELLOW + "You're now in Creative Mode. Go nuts. Have fun.");
-					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Creative Mode.");
-				}
-			else
-				sender.sendMessage(ChatColor.RED + "You forgot to tell me whose gamemode you want me to change! I can't exactly change yours, can I?");
-		else if (parameters.length == 1)
-			if (sender instanceof Player && ("creative".startsWith(parameters[0].toLowerCase()) || parameters[0].equals("1"))) {
-				if (!((Player) sender).getGameMode().equals(GameMode.CREATIVE)) {
-					((Player) sender).setGameMode(GameMode.CREATIVE);
-					sender.sendMessage(ChatColor.YELLOW + "You're now in Creative Mode. Go nuts. Have fun.");
-					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Creative Mode.");
-				} else
-					sender.sendMessage(ChatColor.RED + "You're already in Creative Mode!");
-			} else if (sender instanceof Player && ("survival".startsWith(parameters[0].toLowerCase()) || parameters[0].equals("0"))) {
-				if (!((Player) sender).getGameMode().equals(GameMode.SURVIVAL)) {
-					((Player) sender).setGameMode(GameMode.SURVIVAL);
-					sender.sendMessage(ChatColor.YELLOW + "You're now in Survival Mode. Watch out for monsters.");
-					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Survival Mode.");
-				} else
-					sender.sendMessage(ChatColor.RED + "You're already in Survival Mode!");
-			} else {
-				for (Player player : server.getOnlinePlayers())
-					if (player.getName().toLowerCase().startsWith(parameters[0].toLowerCase())) {
-						if (player.isOp() && sender instanceof Player && !sender.hasPermission("myopaids.admin"))
-							sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to change other ops' gamemodes.");
-						else if (player.getGameMode().equals(GameMode.SURVIVAL)) {
-							player.setGameMode(GameMode.CREATIVE);
-							if (sender instanceof Player) {
-								player.sendMessage(ChatColor.YELLOW + sender.getName() + " put you in Creative Mode.");
-								sender.sendMessage(ChatColor.YELLOW + "You put " + player.getName() + " in Creative Mode.");
-								console.sendMessage(ChatColor.YELLOW + sender.getName() + " put " + player.getName() + " in Creative Mode.");
-							} else {
-								player.sendMessage(ChatColor.YELLOW + "Someone put you in Creative Mode from the console.");
-								console.sendMessage(ChatColor.YELLOW + "You put " + player.getName() + " in Creative Mode.");
-							}
-						} else {
-							player.setGameMode(GameMode.SURVIVAL);
-							if (sender instanceof Player) {
-								player.sendMessage(ChatColor.YELLOW + sender.getName() + " put you in Survival Mode.");
-								sender.sendMessage(ChatColor.YELLOW + "You put " + player.getName() + " in Survival Mode.");
-								console.sendMessage(ChatColor.YELLOW + sender.getName() + " put " + player.getName() + " in Survival Mode.");
-							} else {
-								player.sendMessage(ChatColor.YELLOW + "Someone put you in Survival Mode from the console.");
-								console.sendMessage(ChatColor.YELLOW + "You put " + player.getName() + " in Survival Mode.");
-							}
-						}
-						return;
-					}
-				for (OfflinePlayer player : server.getOfflinePlayers())
-					if (player.getName().toLowerCase().startsWith(parameters[0].toLowerCase())) {
-						if (player.isOp() && sender instanceof Player && !sender.hasPermission("myopaids.admin"))
-							sender.sendMessage(ChatColor.RED + "Sorry, but you're not allowed to change other people's gamemodes.");
-						else if (offline_player_gamemodes.get(player.getName()) == null)
-							sender.sendMessage(ChatColor.RED
-									+ "Sorry, but I don't remember what "
-									+ player.getName()
-									+ "'s gamemode was before they logged off, so I'm not sure what to change their gamemode to. Can you please use two parameters and confirm what gamemode you want me to change them to when they come back on?");
-						else if (offline_player_gamemodes.get(player.getName()).equals(GameMode.SURVIVAL)) {
-							gamemodes_to_change.put(player.getName(), GameMode.CREATIVE);
-							sender.sendMessage(ChatColor.YELLOW + "I'll put " + player.getName() + " in Creative Mode when they get back online.");
-						} else {
-							gamemodes_to_change.put(player.getName(), GameMode.SURVIVAL);
-							sender.sendMessage(ChatColor.YELLOW + "I'll put " + player.getName() + " in Survival Mode when they get back online.");
-						}
-						return;
-					}
-				sender.sendMessage(ChatColor.RED + "Sorry, but I don't believe anyone named \"" + parameters[0] + "\" has ever played on this server.");
-			}
-		else {
-			String player;
-			GameMode new_gamemode = null;
-			if (parameters[0].equals("1") || "creative".startsWith(parameters[0].toLowerCase())) {
-				player = parameters[1];
-				new_gamemode = GameMode.CREATIVE;
-			} else if (parameters[0].equals("0") || "survival".startsWith(parameters[0].toLowerCase())) {
-				player = parameters[1];
-				new_gamemode = GameMode.SURVIVAL;
-			} else if (parameters[1].equals("1") || "creative".startsWith(parameters[1].toLowerCase())) {
-				player = parameters[0];
-				new_gamemode = GameMode.CREATIVE;
-			} else if (parameters[1].equals("0") || "survival".startsWith(parameters[1].toLowerCase())) {
-				player = parameters[0];
-				new_gamemode = GameMode.SURVIVAL;
-			} else
-				player = parameters[0];
-			for (Player online_player : server.getOnlinePlayers())
-				if (online_player.getName().toLowerCase().startsWith(player.toLowerCase())) {
-					if (online_player.isOp() && sender instanceof Player && !sender.hasPermission("myopaids.admin"))
-						sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to change other ops' gamemodes.");
-					else {
-						if (new_gamemode != null)
-							online_player.setGameMode(new_gamemode);
-						else if (online_player.getGameMode().equals(GameMode.SURVIVAL)) {
-							online_player.setGameMode(GameMode.CREATIVE);
-							new_gamemode = GameMode.CREATIVE;
-						} else {
-							online_player.setGameMode(GameMode.SURVIVAL);
-							new_gamemode = GameMode.SURVIVAL;
-						}
-						if (sender instanceof Player) {
-							online_player.sendMessage(ChatColor.YELLOW + sender.getName() + " put you in " + new_gamemode.toString().substring(0, 1)
-									+ new_gamemode.toString().substring(1).toLowerCase() + " Mode.");
-							sender.sendMessage(ChatColor.YELLOW + "You put " + online_player.getName() + " in " + new_gamemode.toString().substring(0, 1)
-									+ new_gamemode.toString().substring(1).toLowerCase() + " Mode.");
-							console.sendMessage(ChatColor.YELLOW + sender.getName() + " put " + online_player.getName() + " in " + new_gamemode.toString().substring(0, 1)
-									+ new_gamemode.toString().substring(1).toLowerCase() + " Mode.");
-						} else {
-							online_player.sendMessage(ChatColor.YELLOW + "Someone put you in " + new_gamemode.toString().substring(0, 1)
-									+ new_gamemode.toString().substring(1).toLowerCase() + " Mode from the console.");
-							console.sendMessage(ChatColor.YELLOW + "You put " + online_player.getName() + " in " + new_gamemode.toString().substring(0, 1)
-									+ new_gamemode.toString().substring(1).toLowerCase() + " Mode.");
-						}
-					}
-					return;
-				}
-			for (OfflinePlayer offline_player : server.getOfflinePlayers())
-				if (offline_player.getName().toLowerCase().startsWith(player)) {
-					if (offline_player.isOp() && sender instanceof Player && !sender.hasPermission("myopaids.admin"))
-						sender.sendMessage(ChatColor.RED + "Sorry, but you're not allowed to change other people's gamemodes.");
-					else if (new_gamemode != null) {
-						gamemodes_to_change.put(offline_player.getName(), new_gamemode);
-						sender.sendMessage(ChatColor.YELLOW + "I'll put " + offline_player.getName() + " in " + new_gamemode.toString().substring(0, 1)
-								+ new_gamemode.toString().substring(1).toLowerCase() + " Mode when they get back online.");
-					} else if (offline_player_gamemodes.get(offline_player.getName()) == null)
-						sender.sendMessage(ChatColor.RED
-								+ "Sorry, but I don't remember what "
-								+ offline_player.getName()
-								+ "'s gamemode was before they logged off, so I'm not sure what to change their gamemode to. Can you please use two parameters and confirm what gamemode you want me to change them to when they come back on?");
-					else if (offline_player_gamemodes.get(offline_player.getName()).equals(GameMode.SURVIVAL)) {
-						gamemodes_to_change.put(offline_player.getName(), GameMode.CREATIVE);
-						sender.sendMessage(ChatColor.YELLOW + "I'll put " + offline_player.getName() + " in Creative Mode when they get back online.");
-					} else {
-						gamemodes_to_change.put(offline_player.getName(), GameMode.SURVIVAL);
-						sender.sendMessage(ChatColor.YELLOW + "I'll put " + offline_player.getName() + " in Survival Mode when they get back online.");
-					}
-					return;
-				}
-			sender.sendMessage(ChatColor.RED + "Sorry, but I don't believe anyone named \"" + parameters[0] + "\" has ever played on this server.");
-		}
+	public void saveTheTemporaryData() {
+		// TODO
 	}
 
+	// plugin commands
 	private void inspect(Player player, Location position) {
 		// this checks the number of times this player has clicked the same block and if the block they're clicking now is the same one. This allows
 		// players to click blocks multiple times to see more than just the past 2 events
