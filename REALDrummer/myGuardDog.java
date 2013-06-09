@@ -49,7 +49,6 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -68,10 +67,9 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public static String[] parameters, enable_messages = { "Server secured.", "BEWARE; MYGUARDDOG.", "Target: Griefers...TARGET LOCKED",
 			"Anti-Griefing shields at full power, Captain. Awaiting orders...", "Hasta la vista, griefers." }, disable_messages = { "Until we meet again, pathetic griefers.",
 			"Griefers have been successfully pwnd.", "Off duty? There is no such thing.", "Though I am disabled, I do not sleep. Your server is under my protection." },
-			yeses = { "yes", "yeah", "yep", "ja", "sure", "why not", "okay", "do it", "fine", "whatever", "very well", "accept", "tpa", "cool", "hell yeah", "hells yeah",
-					"hells yes", "come" }, nos = { "no ", "nah", "nope", "no thanks", "no don't", "shut up", "ignore", "it's not", "its not", "creeper", "unsafe", "wait",
-					"one ", "1 " }, wool_dye_colors = { "black", "red", "green", "brown", "blue", "purple", "cyan", "light gray", "gray", "pink", "lime", "yellow",
-					"light blue", "magenta", "orange", "white" };
+			yeses = { "yes", "yea", "yep", "ja", "sure", "why not", "okay", "do it", "fine", "whatever", "w/e", "very well", "accept", "tpa", "cool", "hell yeah",
+					"hells yeah", "hells yes", "come", "k ", "kk" }, nos = { "no ", "nah", "nope", "no thanks", "no don't", "shut up", "ignore", "it's not", "its not",
+					"creeper", "unsafe", "wait", "one ", "1 " };
 	public static File logs_folder, chrono_logs_folder, position_logs_folder, cause_logs_folder;
 	public static boolean roll_back_in_progress = false, save_in_progress = false, hard_save = false;
 	// player_to_inform_of_[...]: keys=player names and values=admin name or "console" who performed the command
@@ -83,7 +81,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	// inspecting_players=new HashMap<a player using the inspector, Object[] {Location of the last block clicked, int of the number of times the block}>
 	private static HashMap<String, Object[]> inspecting_players = new HashMap<String, Object[]>();
 	public static HashMap<UUID, String> TNT_causes = new HashMap<UUID, String>();
-	private static ArrayList<String> confirmed_gamemode_changers = new ArrayList<String>(), halted_players = new ArrayList<String>(), muted_players = new ArrayList<String>();
+	private static ArrayList<String> halted_players = new ArrayList<String>(), muted_players = new ArrayList<String>();
 	private static Timer autosave_timer;
 	public static HashMap<Block, String> locked_blocks = new HashMap<Block, String>();
 
@@ -118,7 +116,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	public void onDisable() {
 		// save the server data
-		new TimedMethod(console, "hard save", true, null).run();
+		new myGuardDog$1(console, "hard save", true, null).run();
 		// done disabling
 		String disable_message = disable_messages[(int) (Math.random() * disable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + disable_message);
@@ -171,7 +169,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				&& (parameters[1].equalsIgnoreCase("logs") || (parameters.length > 2 && parameters[1].equalsIgnoreCase("the") && parameters[2].equalsIgnoreCase("logs")))) {
 			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")) {
 				save_in_progress = true;
-				new TimedMethod(sender, "save the logs", true, null).run();
+				new myGuardDog$1(sender, "save the logs", true, null).run();
 			} else if (command.equalsIgnoreCase("myGuardDog"))
 				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/myGuardDog save" + ChatColor.RED + ".");
 			else
@@ -179,7 +177,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			return true;
 		} else if ((command.equalsIgnoreCase("mGD") || command.equalsIgnoreCase("myGuardDog")) && parameters.length == 1 && parameters[0].equalsIgnoreCase("save")) {
 			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")) {
-				new TimedMethod(sender, "save the logs", true, null).run();
+				new myGuardDog$1(sender, "save the logs", true, null).run();
 			} else if (command.equalsIgnoreCase("myGuardDog"))
 				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/myGuardDog save" + ChatColor.RED + ".");
 			else
@@ -213,7 +211,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				}
 				if (events.size() > 200)
 					sender.sendMessage(ChatColor.YELLOW + "One moment please. I need to save the logs before we start.");
-				new TimedMethod(sender, "roll back", parameters, null).run();
+				new myGuardDog$1(sender, "roll back", parameters, null).run();
 				// if they used /rollback again after you asked them to confirm their other /rollback command, clearly they want to make changes, so we should
 				// ignore the first command by cancelling the question concerning it
 				if ((sender instanceof Player && players_questioned_about_rollback.containsKey(sender.getName())))
@@ -258,7 +256,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			objects[objects.length - 1] = objects[objects.length - 1].substring(5);
 		}
 		// for 2-item lists
-		// ensure that the myPluginWiki can't return an item name for this whole list; if it can, it means it's not actually a two-item list, but a single item with the
+		// ensure that the myPluginWiki can't return an item name for this whole list; if it can, it means it's not actually a two-item list, but a single item
+		// with the
 		// word "and" in the name (like "flint and steel")
 		else if (list.contains(" and ") && myPluginWiki.getItemIdAndData(list, null) == null) {
 			String[] temp = list.split(" and ");
@@ -571,42 +570,27 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 				server.getScheduler().scheduleSyncDelayedTask(
 						this,
-						new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true, false),
-								location, break_event.in_Creative_Mode)), 1);
+						new myGuardDog$1(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true,
+								false), location, break_event.in_Creative_Mode)), 1);
 		}
 		// check the top of the broken block for possible reaction breaks
 		Location location = new Location(break_event.world, break_event.x, break_event.y + 1, break_event.z);
 		if (myPluginWiki.mustBeAttached(location.getBlock(), null) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 			server.getScheduler().scheduleSyncDelayedTask(
 					this,
-					new TimedMethod(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true, false),
+					new myGuardDog$1(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true, false),
 							location, break_event.in_Creative_Mode)), 1);
 	}
 
 	// listeners
 	@Override
 	public void actionPerformed(ActionEvent event) {
-		new TimedMethod(console, "save the logs", true, null).run();
+		new myGuardDog$1(console, "save the logs", true, null).run();
 	}
 
 	@EventHandler
 	public void recordThePlayersGameModeBeforeTheyLogOff(PlayerQuitEvent event) {
 		offline_player_gamemodes.put(event.getPlayer().getName(), event.getPlayer().getGameMode());
-	}
-
-	@EventHandler
-	public void checkForUnconfirmedGamemodeChanges(PlayerGameModeChangeEvent event) {
-		if (confirmed_gamemode_changers.contains(event.getPlayer().getName()) || event.getPlayer().hasPermission("myguarddog.admin"))
-			confirmed_gamemode_changers.remove(event.getPlayer().getName());
-		else {
-			event.setCancelled(true);
-			server.broadcastMessage(ChatColor.RED + "ALERT! ALERT! ALERT! " + event.getPlayer().getName() + " tried to change gamemodes without the use of this plugin! "
-					+ event.getPlayer().getName() + " might be a griefer!");
-			halted_players.add(event.getPlayer().getName());
-			muted_players.add(event.getPlayer().getName());
-			server.broadcastMessage(ChatColor.RED + "I've halted " + event.getPlayer().getName() + ". They can't move or use commands or talk. Admins, you can use "
-					+ ChatColor.ITALIC + "/unmute" + ChatColor.RED + " to unmute them and " + ChatColor.ITALIC + "/unhalt" + ChatColor.RED + " to unhalt them.");
-		}
 	}
 
 	@EventHandler
@@ -657,7 +641,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				event.setCancelled(true);
 				if (events.size() > 200)
 					event.getPlayer().sendMessage(ChatColor.YELLOW + "One moment please. I need to save the logs before we start.");
-				new TimedMethod(event.getPlayer(), "roll back", false, parameters).run();
+				new myGuardDog$1(event.getPlayer(), "roll back", false, parameters).run();
 			} else if (accepted != null) {
 				event.setCancelled(true);
 				players_questioned_about_rollback.remove(event.getPlayer().getName());
@@ -668,7 +652,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler
 	public void saveTheLogsWhenTheWorldSaves(WorldSaveEvent event) {
-		new TimedMethod(console, "save the logs", true, null).run();
+		new myGuardDog$1(console, "save the logs", true, null).run();
 	}
 
 	@EventHandler(priority = EventPriority.HIGH)
@@ -685,14 +669,22 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public void logBlockBreakAndInspect(BlockBreakEvent event) {
 		if (event.isCancelled())
 			return;
+		// inspect
 		if (inspecting_players.containsKey(event.getPlayer().getName())) {
 			event.setCancelled(true);
 			inspect(event.getPlayer(), event.getBlock().getLocation());
-			return;
+		} // cancel the event if
+		else if (locked_blocks.containsKey(event.getBlock()) && !event.getPlayer().getName().equals(locked_blocks.get(event.getBlock()))
+				&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+			event.setCancelled(true);
+			event.getPlayer().sendMessage(
+					ChatColor.RED + "This is " + locked_blocks.get(event.getBlock()) + "'s " + myPluginWiki.getItemName(event.getBlock(), false, true, true)
+							+ " and you can't unlock it.");
+		} else {
+			Event break_event = new Event(event.getPlayer().getName(), "broke", event.getBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE);
+			events.add(break_event);
+			checkForReactionBreaks(break_event, null);
 		}
-		Event break_event = new Event(event.getPlayer().getName(), "broke", event.getBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE);
-		events.add(break_event);
-		checkForReactionBreaks(break_event, null);
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -725,8 +717,9 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			if (event.getBlock().getType() != Material.AIR && event.getBlock().getType() != Material.FIRE) {
 				events.add(new Event(event.getPlayer().getName(), "placed", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
 				if (event.getBlockReplacedState().getType() != Material.AIR)
-					events.add(new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event.getBlockReplacedState()
-							.getData().getData(), true, true, false), event.getBlock().getLocation(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
+					events.add(new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event
+							.getBlockReplacedState().getData().getData(), true, true, false), event.getBlock().getLocation(),
+							event.getPlayer().getGameMode() == GameMode.CREATIVE));
 			} // consider "placing fire" the same as "setting fire to" something, but don't bother logging T.N.T. ignition
 			else if (event.getBlock().getType() == Material.FIRE && event.getBlockReplacedState().getType() != Material.TNT)
 				events.add(new Event(event.getPlayer().getName(), "set fire to", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
@@ -904,7 +897,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				checkForReactionBreaks(new Event(cause, action, block, null), block_list);
 			} else if (block.getType() == Material.FIRE)
 				// find the PRIMED_TNT Entity closest to the block
-				server.getScheduler().scheduleSyncDelayedTask(mGD, new TimedMethod(console, "track T.N.T.", block.getLocation(), cause), 1);
+				server.getScheduler().scheduleSyncDelayedTask(mGD, new myGuardDog$1(console, "track T.N.T.", block.getLocation(), cause), 1);
 		// through experimentation, I discovered that if an entity explodes and the explosion redirects a PRIMED_TNT Entity, it actually replaces the old
 		// PRIMED_TNT Entity with a new one going a different direction. That's important because it changes the UUID of the PRIMED_TNT and I use that to track
 		// the explosions with the TNT_causes HashMap. Therefore, here, I need to make it track any PRIMED_TNT Entities inside the blast radius
@@ -912,7 +905,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		for (Entity entity : event.getLocation().getWorld().getEntities())
 			// max distance = 7; max distance squared = 49
 			if (entity.getType() == EntityType.PRIMED_TNT && entity.getLocation().distanceSquared(event.getLocation()) < 49)
-				server.getScheduler().scheduleSyncDelayedTask(mGD, new TimedMethod(console, "track T.N.T.", entity.getLocation(), cause), 1);
+				server.getScheduler().scheduleSyncDelayedTask(mGD, new myGuardDog$1(console, "track T.N.T.", entity.getLocation(), cause), 1);
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -1049,7 +1042,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 						info_messages.put(owner.getName(), messages);
 					}
 					// send a confirmation message
-					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked " + locked_blocks.get(block) + "'s " + myPluginWiki.getItemName(block, false, true, true) + ".");
+					event.getPlayer().sendMessage(
+							ChatColor.YELLOW + "You unlocked " + locked_blocks.get(block) + "'s " + myPluginWiki.getItemName(block, false, true, true) + ".");
 				} else
 					event.getPlayer().sendMessage(ChatColor.YELLOW + "You unlocked your " + myPluginWiki.getItemName(block, false, true, true) + ".");
 				// unlock the block
@@ -1150,7 +1144,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			if (event.getBlock().getTypeId() != 0)
 				events.add(new Event("an Enderman", "picked up", event.getBlock(), null));
 			else
-				server.getScheduler().scheduleSyncDelayedTask(this, new TimedMethod(console, "track Enderman placements", event.getBlock(), null), 1);
+				server.getScheduler().scheduleSyncDelayedTask(this, new myGuardDog$1(console, "track Enderman placements", event.getBlock(), null), 1);
 		else if (event.getEntityType() == EntityType.FALLING_BLOCK) {
 			String cause = null, action, object;
 			// figure out whether this was sand or gravel
@@ -1384,12 +1378,10 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		if (parameters.length == 0)
 			if (sender instanceof Player)
 				if (((Player) sender).getGameMode() == GameMode.CREATIVE) {
-					confirmed_gamemode_changers.add(sender.getName());
 					((Player) sender).setGameMode(GameMode.SURVIVAL);
 					sender.sendMessage(ChatColor.YELLOW + "You're now in Survival Mode. Watch out for monsters.");
 					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Survival Mode.");
 				} else {
-					confirmed_gamemode_changers.add(sender.getName());
 					((Player) sender).setGameMode(GameMode.CREATIVE);
 					sender.sendMessage(ChatColor.YELLOW + "You're now in Creative Mode. Go nuts. Have fun.");
 					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Creative Mode.");
@@ -1399,7 +1391,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		else if (parameters.length == 1)
 			if (sender instanceof Player && ("creative".startsWith(parameters[0].toLowerCase()) || parameters[0].equals("1"))) {
 				if (!((Player) sender).getGameMode().equals(GameMode.CREATIVE)) {
-					confirmed_gamemode_changers.add(sender.getName());
 					((Player) sender).setGameMode(GameMode.CREATIVE);
 					sender.sendMessage(ChatColor.YELLOW + "You're now in Creative Mode. Go nuts. Have fun.");
 					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Creative Mode.");
@@ -1407,7 +1398,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					sender.sendMessage(ChatColor.RED + "You're already in Creative Mode!");
 			} else if (sender instanceof Player && ("survival".startsWith(parameters[0].toLowerCase()) || parameters[0].equals("0"))) {
 				if (!((Player) sender).getGameMode().equals(GameMode.SURVIVAL)) {
-					confirmed_gamemode_changers.add(sender.getName());
 					((Player) sender).setGameMode(GameMode.SURVIVAL);
 					sender.sendMessage(ChatColor.YELLOW + "You're now in Survival Mode. Watch out for monsters.");
 					console.sendMessage(ChatColor.YELLOW + sender.getName() + " changed to Survival Mode.");
@@ -1419,7 +1409,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 						if (player.isOp() && sender instanceof Player && !sender.hasPermission("myopaids.admin"))
 							sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to change other ops' gamemodes.");
 						else if (player.getGameMode().equals(GameMode.SURVIVAL)) {
-							confirmed_gamemode_changers.add(player.getName());
 							player.setGameMode(GameMode.CREATIVE);
 							if (sender instanceof Player) {
 								player.sendMessage(ChatColor.YELLOW + sender.getName() + " put you in Creative Mode.");
@@ -1430,7 +1419,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 								console.sendMessage(ChatColor.YELLOW + "You put " + player.getName() + " in Creative Mode.");
 							}
 						} else {
-							confirmed_gamemode_changers.add(player.getName());
 							player.setGameMode(GameMode.SURVIVAL);
 							if (sender instanceof Player) {
 								player.sendMessage(ChatColor.YELLOW + sender.getName() + " put you in Survival Mode.");
@@ -1485,15 +1473,12 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					if (online_player.isOp() && sender instanceof Player && !sender.hasPermission("myopaids.admin"))
 						sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to change other ops' gamemodes.");
 					else {
-						if (new_gamemode != null) {
-							confirmed_gamemode_changers.add(online_player.getName());
+						if (new_gamemode != null)
 							online_player.setGameMode(new_gamemode);
-						} else if (online_player.getGameMode().equals(GameMode.SURVIVAL)) {
-							confirmed_gamemode_changers.add(online_player.getName());
+						else if (online_player.getGameMode().equals(GameMode.SURVIVAL)) {
 							online_player.setGameMode(GameMode.CREATIVE);
 							new_gamemode = GameMode.CREATIVE;
 						} else {
-							confirmed_gamemode_changers.add(online_player.getName());
 							online_player.setGameMode(GameMode.SURVIVAL);
 							new_gamemode = GameMode.SURVIVAL;
 						}

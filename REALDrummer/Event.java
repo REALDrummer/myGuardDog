@@ -153,7 +153,7 @@ public class Event {
 		// special action: ...dyed a [color] sheep [new color]...
 		if (action.equals("dyed") && objects.length == 1) {
 			String wool_color = null;
-			for (String color : myGuardDog.wool_dye_colors)
+			for (String color : myPluginWiki.Minecraft_colors)
 				if (objects[0].endsWith(color)) {
 					wool_color = color;
 					break;
