@@ -182,7 +182,10 @@ public class Event {
 			in_Creative_Mode = false;
 		else
 			in_Creative_Mode = null;
-		world = myGuardDog.server.getWorld(save_line.split("\"")[1]);
+		String world_name = save_line.split("\"")[1];
+		if (world_name.endsWith(".") && in_Creative_Mode == null)
+			world_name = world_name.substring(0, world_name.length() - 1);
+		world = myGuardDog.server.getWorld(world_name);
 		if (world == null) {
 			myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I couldn't find the world in this event!");
 			myGuardDog.console.sendMessage(ChatColor.DARK_RED + "save line: \"" + ChatColor.WHITE + save_line + ChatColor.DARK_RED + "\"");

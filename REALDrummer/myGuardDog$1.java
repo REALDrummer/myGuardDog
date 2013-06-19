@@ -672,20 +672,20 @@ public class myGuardDog$1 implements Runnable {
 					// If the event is a removal but the block at the location is no longer air, a later event must have changed it already.
 					if ((event.isPlacement() && !new Integer[] { event.location.getBlock().getTypeId(), (int) event.location.getBlock().getData() }.equals(myPluginWiki
 							.getItemIdAndData(event.objects, false)))
-							|| (event.isRemoval() && event.location.getBlock().getType() != Material.AIR))
+							|| event.isRemoval() && event.location.getBlock().getType() != Material.AIR)
 						continue;
 					// if that event was not the last roll-back-able event to occur at that block, cancel it
 					else {
 						BufferedReader in =
 								new BufferedReader(new FileReader(new File(myGuardDog.position_logs_folder, "(" + event.x + ", " + event.z + ") "
 										+ event.world.getWorldFolder().getName() + ".txt")));
-						String new_save_line = in.readLine();
-						Event new_event = new Event(new_save_line);
-						while (new_save_line != null && !new_save_line.equals("") && !new_event.canBeRolledBack()) {
-							new_event = new Event(new_save_line);
-							new_save_line = in.readLine();
+						String newest_save_line = in.readLine();
+						Event newest_event = new Event(newest_save_line);
+						while (newest_save_line != null && !newest_save_line.equals("") && !newest_event.canBeRolledBack()) {
+							newest_event = new Event(newest_save_line);
+							newest_save_line = in.readLine();
 						}
-						if (!event.equals(new_event))
+						if (!event.equals(newest_event))
 							continue;
 					}
 					// ORDER: remove all liquids (part 1), then remove all blocks that must be attached to something (part 1), then roll back solid
@@ -725,7 +725,7 @@ public class myGuardDog$1 implements Runnable {
 						roll_back_events_part4.add(0, event);
 					else if (event.isRemoval() && event.objects != null && (event.objects[0].equals("lava") || event.objects[0].equals("water")))
 						roll_back_events_part4.add(event);
-					else {
+					else if (!event.action.equals("killed")) {
 						myGuardDog.console.sendMessage(ChatColor.DARK_RED
 								+ "Hey. There was this weird event. I didn't know where to insert it in the ordered roll back, so I put it at the end.");
 						myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
