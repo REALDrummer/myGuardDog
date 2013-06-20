@@ -12,7 +12,6 @@ import java.util.HashMap;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -148,7 +147,20 @@ public class myGuardDog$1 implements Runnable {
 	private void trackReactionBreaks(Event new_event) {
 		// if the type I.D. of the block logged in the event before the break is different from that block's current type I.D., log it as a break
 		if (myPluginWiki.getItemIdAndData(new_event.objects[0], false)[0] != new_event.location.getBlock().getTypeId())
-			myGuardDog.events.add(new_event);
+			// if the block is locked and the person who broke it isn't the owner of the block or an admin, undo the original break
+			if (myGuardDog.locked_blocks.containsKey(new_event.location.getBlock()) && !new_event.cause.equals(myGuardDog.locked_blocks.get(new_event.location.getBlock()))
+					&& !myGuardDog.server.getPlayerExact(new_event.cause).hasPermission("myguarddog.admin")) {
+				Integer[] id_and_data = myPluginWiki.getItemIdAndData(new_event.objects[0], false);
+				if (id_and_data == null)
+					myGuardDog.console.sendMessage(ChatColor.DARK_RED + "I couldn't identify the item I.D. of \"" + new_event.objects[0] + "\"!");
+				else {
+					new_event.location.getBlock().setTypeIdAndData(id_and_data[0], id_and_data[1].byteValue(), false);
+					myGuardDog.server.getPlayerExact(new_event.cause).sendMessage(
+							ChatColor.RED + "This is " + myGuardDog.locked_blocks.get(new_event.location.getBlock()) + "'s "
+									+ myPluginWiki.getItemName(new_event.location.getBlock(), false, true, true) + " and you can't break it.");
+				}
+			} else
+				myGuardDog.events.add(new_event);
 	}
 
 	private void saveTheLogsPartIChrono() {
@@ -283,8 +295,7 @@ public class myGuardDog$1 implements Runnable {
 					return;
 				}
 				File log_file =
-						new File(myGuardDog.position_logs_folder, "(" + events_to_save.get(i).x + ", " + events_to_save.get(i).z + ") "
-								+ events_to_save.get(i).world.getWorldFolder().getName() + ".txt");
+						new File(myGuardDog.position_logs_folder, "x = " + events_to_save.get(i).x + " " + events_to_save.get(i).world.getWorldFolder().getName() + ".txt");
 				ArrayList<String> previous_data = new ArrayList<String>();
 				if (!log_file.exists())
 					log_file.createNewFile();
@@ -665,29 +676,11 @@ public class myGuardDog$1 implements Runnable {
 					radius_satisfied = true;
 				// set this event up for rollback
 				if (causes_satisfied && actions_satisfied && objects_satisfied && radius_satisfied && !event.rolled_back && event.canBeRolledBack()) {
-					// remove events that cancel each other out.
-					// First, try checking the block directly to see if it has been changed since these events.
-					// If the event is a placement but the block at that location is no longer the same as what was placed, a later event must have changed it
-					// already.
-					// If the event is a removal but the block at the location is no longer air, a later event must have changed it already.
-					if ((event.isPlacement() && !new Integer[] { event.location.getBlock().getTypeId(), (int) event.location.getBlock().getData() }.equals(myPluginWiki
-							.getItemIdAndData(event.objects, false)))
-							|| event.isRemoval() && event.location.getBlock().getType() != Material.AIR)
-						continue;
 					// if that event was not the last roll-back-able event to occur at that block, cancel it
-					else {
-						BufferedReader in =
-								new BufferedReader(new FileReader(new File(myGuardDog.position_logs_folder, "(" + event.x + ", " + event.z + ") "
-										+ event.world.getWorldFolder().getName() + ".txt")));
-						String newest_save_line = in.readLine();
-						Event newest_event = new Event(newest_save_line);
-						while (newest_save_line != null && !newest_save_line.equals("") && !newest_event.canBeRolledBack()) {
-							newest_event = new Event(newest_save_line);
-							newest_save_line = in.readLine();
-						}
-						if (!event.equals(newest_event))
-							continue;
-					}
+					BufferedReader in =
+							new BufferedReader(new FileReader(new File(myGuardDog.position_logs_folder, "x = " + event.x + " " + event.world.getWorldFolder().getName()
+									+ ".txt")));
+					// TODO: figure out when events need to be cancelled because later events that don't need to be rolled back have occurred
 					// ORDER: remove all liquids (part 1), then remove all blocks that must be attached to something (part 1), then roll back solid
 					// blocks with sand and gravel organized from bottom to top for replacement (part 2) and top to bottom for removal (part 3), then
 					// replace blocks that must be attached to something (part 4), then replace liquids (part 4)
@@ -731,7 +724,17 @@ public class myGuardDog$1 implements Runnable {
 						myGuardDog.console.sendMessage(ChatColor.WHITE + event.save_line);
 						roll_back_events_part4.add(event);
 					}
+				} // TODO EXT TEMP
+				else {
+					myGuardDog.console.sendMessage(ChatColor.WHITE + save_line);
+					if (!radius_satisfied)
+						myGuardDog.console.sendMessage(ChatColor.RED + "The radius wasn't satisfied!");
+					else if (!causes_satisfied) {
+						myGuardDog.console.sendMessage(ChatColor.RED + "The causes weren't satisfied!");
+						myGuardDog.console.sendMessage(ChatColor.YELLOW + "cause = \"" + causes.get(0) + "\"");
+					}
 				}
+				// TODO END TEMP
 			}
 		} catch (IOException exception) {
 			sender.sendMessage(ChatColor.DARK_RED + "Great...IOException while reading the log files for a rollback...");
@@ -902,8 +905,7 @@ public class myGuardDog$1 implements Runnable {
 				this_file_has_roll_back_events = false;
 				events_located_so_far = 0;
 				log_file =
-						new File(myGuardDog.position_logs_folder, "(" + roll_back_events.get(0).x + ", " + roll_back_events.get(0).z + ") "
-								+ roll_back_events.get(0).world.getWorldFolder().getName() + ".txt");
+						new File(myGuardDog.position_logs_folder, "x = " + roll_back_events.get(0).x + " " + roll_back_events.get(0).world.getWorldFolder().getName() + ".txt");
 				if (!log_file.exists())
 					log_file.createNewFile();
 				in = new BufferedReader(new FileReader(log_file));
@@ -929,8 +931,8 @@ public class myGuardDog$1 implements Runnable {
 						updated_events.put(log_file, events_for_this_file);
 					events_for_this_file = new ArrayList<String>();
 					log_file =
-							new File(myGuardDog.position_logs_folder, "(" + roll_back_events.get(i).x + ", " + roll_back_events.get(i).z + ") "
-									+ roll_back_events.get(i).world.getWorldFolder().getName() + ".txt");
+							new File(myGuardDog.position_logs_folder, "x = " + roll_back_events.get(i).x + " " + roll_back_events.get(i).world.getWorldFolder().getName()
+									+ ".txt");
 					// when this method gets a position log file, it updates ALL the events in that file as rolled back that were rolled back, not just the one
 					// that was used to find that file. Therefore, we need to search through the list until we find an event with a location that coordinates
 					// with a position log file that has not been updated yet.
@@ -951,7 +953,7 @@ public class myGuardDog$1 implements Runnable {
 							break;
 						else
 							log_file =
-									new File(myGuardDog.position_logs_folder, "(" + roll_back_events.get(i).x + ", " + roll_back_events.get(i).z + ") "
+									new File(myGuardDog.position_logs_folder, "x = " + roll_back_events.get(i).x + " "
 											+ roll_back_events.get(i).world.getWorldFolder().getName() + ".txt");
 					}
 					if (i >= 50 * (iterations + 1))
@@ -1115,11 +1117,11 @@ public class myGuardDog$1 implements Runnable {
 				iterations = 0;
 				first_iteration = false;
 				// TODO TEMP
-				for (File log : updated_events.keySet()) {
-					myGuardDog.console.sendMessage(ChatColor.YELLOW + log.getName());
-					for (String line : updated_events.get(log))
-						myGuardDog.console.sendMessage(ChatColor.WHITE + line);
-				}
+				// for (File log : updated_events.keySet()) {
+				// myGuardDog.console.sendMessage(ChatColor.YELLOW + log.getName());
+				// for (String line : updated_events.get(log))
+				// myGuardDog.console.sendMessage(ChatColor.WHITE + line);
+				// }
 			}
 			for (int i = 0; i < 100; i++) {
 				// if all the events for this file have been written,...

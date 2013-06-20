@@ -105,7 +105,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		autosave_timer = new Timer(300000, this);
 		autosave_timer.start();
 		loadTheLockedBlocks(console);
-		loadTheTemporaryData();
 		// done enabling
 		String enable_message = enable_messages[(int) (Math.random() * enable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + enable_message);
@@ -118,7 +117,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		// save the server data
 		new myGuardDog$1(console, "hard save", true, null).run();
 		saveTheLockedBlocks(console, true);
-		saveTheTemporaryData();
 		// done disabling
 		String disable_message = disable_messages[(int) (Math.random() * disable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + disable_message);
@@ -253,8 +251,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		}
 		// for 2-item lists
 		// ensure that the myPluginWiki can't return an item name for this whole list; if it can, it means it's not actually a two-item list, but a single item
-		// with the
-		// word "and" in the name (like "flint and steel")
+		// with the word "and" in the name (like "flint and steel")
 		else if (list.contains(" and ") && myPluginWiki.getItemIdAndData(list, null) == null) {
 			String[] temp = list.split(" and ");
 			objects = new String[2];
@@ -454,8 +451,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					return events.get(i).cause;
 		// if you couldn't find the recent event in events, check the logs
 		try {
-			File file =
-					new File(position_logs_folder, "(" + location.getBlockX() + ", " + location.getBlockZ() + ") " + location.getWorld().getWorldFolder().getName() + ".txt");
+			File file = new File(position_logs_folder, "x = " + location.getBlockX() + " " + location.getWorld().getWorldFolder().getName() + ".txt");
 			if (!file.exists())
 				return null;
 			BufferedReader in = new BufferedReader(new FileReader(file));
@@ -489,8 +485,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				return events.get(i).cause;
 		// if you couldn't find the recent event in events, check the logs
 		try {
-			File file =
-					new File(position_logs_folder, "(" + location.getBlockX() + ", " + location.getBlockZ() + ") " + location.getWorld().getWorldFolder().getName() + ".txt");
+			File file = new File(position_logs_folder, "x = " + location.getBlockX() + " " + location.getWorld().getWorldFolder().getName() + ".txt");
 			if (!file.exists())
 				return null;
 			BufferedReader in = new BufferedReader(new FileReader(file));
@@ -522,8 +517,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				return events.get(i).cause;
 		// if you couldn't find the recent event in events, check the logs
 		try {
-			File file =
-					new File(position_logs_folder, "(" + location.getBlockX() + ", " + location.getBlockZ() + ") " + location.getWorld().getWorldFolder().getName() + ".txt");
+			File file = new File(position_logs_folder, "x = " + location.getBlockX() + " " + location.getWorld().getWorldFolder().getName() + ".txt");
 			if (!file.exists())
 				return null;
 			BufferedReader in = new BufferedReader(new FileReader(file));
@@ -673,7 +667,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			event.setCancelled(true);
 			event.getPlayer().sendMessage(
 					ChatColor.RED + "This is " + locked_blocks.get(event.getBlock()) + "'s " + myPluginWiki.getItemName(event.getBlock(), false, true, true)
-							+ " and you can't unlock it.");
+							+ " and you can't break it.");
 		} else {
 			Event break_event = new Event(event.getPlayer().getName(), "broke", event.getBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE);
 			events.add(break_event);
@@ -974,8 +968,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			if (cause.equals("some T.N.T.")) {
 				// if it wasn't a recent event, look through the logged events
 				File log_file =
-						new File(position_logs_folder, "(" + event.getLocation().getBlockX() + ", " + event.getLocation().getBlockZ() + ") "
-								+ event.getLocation().getWorld().getWorldFolder().getName() + ".txt");
+						new File(position_logs_folder, "x = " + event.getLocation().getBlockX() + " " + event.getLocation().getWorld().getWorldFolder().getName() + ".txt");
 				if (log_file.exists()) {
 					try {
 						BufferedReader in = new BufferedReader(new FileReader(log_file));
@@ -1322,14 +1315,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName() + " loaded the server's locked blocks from file, but there were no locked blocks on file.");
 	}
 
-	public void loadTheTemporaryData() {
-		// TODO
-		// TODO TEMP
-		for (Player player : server.getOnlinePlayers())
-			if (!trust_list.containsKey(player.getName()))
-				trust_list.put(player.getName(), new ArrayList<String>());
-	}
-
 	// saving
 	public void saveTheLockedBlocks(CommandSender sender, boolean display_message) {
 		// check the warps file
@@ -1381,10 +1366,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		}
 	}
 
-	public void saveTheTemporaryData() {
-		// TODO
-	}
-
 	// plugin commands
 	private void inspect(Player player, Location position) {
 		// this checks the number of times this player has clicked the same block and if the block they're clicking now is the same one. This allows
@@ -1423,8 +1404,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				} else
 					display_events.add(events.get(i));
 			}
-		File log_file =
-				new File(position_logs_folder, "(" + position.getBlockX() + ", " + position.getBlockZ() + ") " + position.getWorld().getWorldFolder().getName() + ".txt");
+		File log_file = new File(position_logs_folder, "x = " + position.getBlockX() + " " + position.getWorld().getWorldFolder().getName() + ".txt");
 		if (!log_file.exists()) {
 			if (display_events.size() > 0) {
 				player.sendMessage(ChatColor.YELLOW + "I see that...");
