@@ -54,7 +54,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.vehicle.VehicleMoveEvent;
 import org.bukkit.event.world.StructureGrowEvent;
-import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -83,6 +82,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	private static Timer autosave_timer;
 	public static HashMap<Block, String> locked_blocks = new HashMap<Block, String>();
 
+	// TODO: make sure arrayToList() and listToArray() are only used on lists of items and blocks!!
+	// TODO: change all the parts where cause can be "something" or "some lava" to not logging
 	// TODO: make /busy top (#) show the busiest people on the server by comparing the sizes of the cause log files
 	// TODO: make a turn on PvP command for specific players
 	// TODO: make sure players_to_inform HashMaps are saved in temp data as well as offline_player_gamemodes and gamemodes_to_change
@@ -165,17 +166,17 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				save_in_progress = true;
 				new myGuardDog$1(sender, "save the logs", true, null).run();
 			} else if (command.equalsIgnoreCase("myGuardDog"))
-				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/myGuardDog save" + ChatColor.RED + ".");
+				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.YELLOW + "/myGuardDog save" + ChatColor.RED + ".");
 			else
-				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/mGD save" + ChatColor.RED + ".");
+				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.YELLOW + "/mGD save" + ChatColor.RED + ".");
 			return true;
 		} else if ((command.equalsIgnoreCase("mGD") || command.equalsIgnoreCase("myGuardDog")) && parameters.length == 1 && parameters[0].equalsIgnoreCase("save")) {
 			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")) {
 				new myGuardDog$1(sender, "save the logs", true, null).run();
 			} else if (command.equalsIgnoreCase("myGuardDog"))
-				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/myGuardDog save" + ChatColor.RED + ".");
+				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.YELLOW + "/myGuardDog save" + ChatColor.RED + ".");
 			else
-				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.GREEN + "/mGD save" + ChatColor.RED + ".");
+				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to use " + ChatColor.YELLOW + "/mGD save" + ChatColor.RED + ".");
 			return true;
 		} else if (command.toLowerCase().startsWith("insp")) {
 			if (sender instanceof Player && (sender.hasPermission("myguarddog.inspect") || sender.hasPermission("myguarddog.admin")))
@@ -220,56 +221,65 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	// intra-command methods
-	public static String arrayToList(String[] objects) {
+	public static String replaceAll(String to_return, String... changes) {
+		for (int j = 0; j < changes.length; j += 2) {
+			if (!to_return.toLowerCase().contains(changes[j].toLowerCase()))
+				return to_return;
+			for (int i = 0; to_return.length() >= i + changes[j].length(); i++) {
+				if (to_return.substring(i, i + changes[j].length()).equalsIgnoreCase(changes[j])) {
+					to_return = to_return.substring(0, i) + changes[j + 1] + to_return.substring(i + changes[j].length());
+					i += changes[j + 1].length() - 1;
+				}
+				if (!to_return.toLowerCase().contains(changes[j].toLowerCase()))
+					break;
+			}
+		}
+		return to_return;
+	}
+
+	public static String arrayToList(String[] objects, String... options) {
+		String separator = ", ", final_conjunction = "and";
+		if (options.length > 0 && options[0] != null)
+			separator = options[0];
+		if (options.length > 1 && options[1] != null)
+			final_conjunction = options[1];
 		if (objects.length == 0)
-			return null;
+			return "";
 		else if (objects.length == 1)
 			return objects[0];
 		else if (objects.length == 2)
-			return objects[0] + " and " + objects[1];
+			return objects[0] + " " + final_conjunction + " " + objects[1];
 		else {
 			String list = "";
 			for (int i = 0; i < objects.length; i++) {
 				list += objects[i];
 				if (i <= objects.length - 1) {
-					list += ", ";
-					if (i == objects.length - 1)
-						list += "and ";
+					list += separator;
+					if (i == objects.length - 2)
+						list += final_conjunction + " ";
 				}
 			}
 			return list;
 		}
 	}
 
-	public static String[] listToArray(String list) {
+	public static String[] listToArray(String list, String... options) {
 		String[] objects = null;
+		String separator = ", ", final_conjunction = "and";
+		if (options.length > 0 && options[0] != null)
+			separator = options[0];
+		if (options.length > 1 && options[1] != null)
+			final_conjunction = options[1];
 		// for 3+-item lists
-		if (list.contains(", ")) {
-			objects = list.split(", ");
-			// remove the "and" at the beginning of the list object
-			objects[objects.length - 1] = objects[objects.length - 1].substring(5);
+		if (list.contains(separator)) {
+			objects = list.split(separator);
+			// remove the final conjunction (usually "and") at the beginning of the list object
+			objects[objects.length - 1] = objects[objects.length - 1].substring(final_conjunction.length() + 1);
 		}
 		// for 2-item lists
-		// ensure that the myPluginWiki can't return an item name for this whole list; if it can, it means it's not actually a two-item list, but a single item
-		// with the word "and" in the name (like "flint and steel")
-		else if (list.contains(" and ") && myPluginWiki.getItemIdAndData(list, null) == null) {
-			String[] temp = list.split(" and ");
-			objects = new String[2];
-			// if one or both of the items have an " and " in the name
-			if (temp.length > 2) {
-				// if the first two terms form an item, put them together to form the first object
-				if (myPluginWiki.getItemIdAndData(temp[0] + " and " + temp[1], null) != null) {
-					objects[0] = temp[0] + " and " + temp[1];
-					// if the length of temp is 4, both terms must have contained an " and "
-					if (temp.length == 4)
-						objects[1] = temp[2] + " and " + temp[3];
-					else
-						objects[1] = temp[2];
-				} else
-					return new String[] { temp[0], temp[1] + " and " + temp[2] };
-			} else
-				return temp;
-		} // for 1-item lists
+		else if (list.contains(" " + final_conjunction + " "))
+			return list.split(" " + final_conjunction + " ");
+		// for 1-item lists
 		else
 			return new String[] { list };
 		return objects;
@@ -637,11 +647,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		}
 	}
 
-	@EventHandler
-	public void saveTheLogsWhenTheWorldSaves(WorldSaveEvent event) {
-		new myGuardDog$1(console, "save the logs", true, null).run();
-	}
-
 	@EventHandler(priority = EventPriority.HIGH)
 	public void trackTNTMinecartActivations(VehicleMoveEvent event) {
 		if (!(event.getVehicle().getType() == EntityType.MINECART_TNT && !TNT_causes.containsKey(event.getVehicle().getUniqueId())
@@ -883,11 +888,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logWaterAndLavaSpreadAndBlocksBrokenByIt(BlockFromToEvent event) {
-		// TODO figure out how to make it log water and lava recession
 		if (event.isCancelled())
 			return;
 		// if the block it's trying to spread to can't be broken by liquds, it won't actually spread, so cancel the event
-		if (!myPluginWiki.canBeBrokenByLiquids(event.getToBlock()) && !myPluginWiki.canBeBrokenByLiquids(event.getBlock())) {
+		if (!myPluginWiki.canBeBrokenByLiquids(event.getToBlock()) && !myPluginWiki.canBeBrokenByLiquids(event.getBlock()) || !event.getToBlock().isLiquid()
+				&& !event.getBlock().isLiquid()) {
 			event.setCancelled(true);
 			return;
 		}
@@ -897,21 +902,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			action = "spread";
 			object = "some lava";
 			cause = findCause(new String[] { "placed", "spread" }, new String[] { object, object }, event.getBlock().getLocation());
-		} // lava runoff disappation
-		else if (event.getToBlock().getType() == Material.LAVA || event.getToBlock().getType() == Material.STATIONARY_LAVA) {
-			action = "removed";
-			object = "some lava";
-			cause = findCause("removed", object, event.getBlock().getLocation());
 		} // water spread
 		else if (event.getBlock().getType() == Material.WATER || event.getBlock().getType() == Material.STATIONARY_WATER) {
 			action = "spread";
 			object = "some water";
 			cause = findCause(new String[] { "placed", "spread" }, new String[] { object, object }, event.getBlock().getLocation());
-		} // water runoff disappation
-		else if (event.getToBlock().getType() == Material.WATER || event.getToBlock().getType() == Material.STATIONARY_WATER) {
-			action = "removed";
-			object = "some water";
-			cause = findCause("removed", object, event.getBlock().getLocation());
 		} else {
 			console.sendMessage(ChatColor.DARK_RED + "An unidentified BlockFromToEvent involving liquids occurred at (" + event.getBlock().getX() + ", "
 					+ event.getBlock().getY() + ", " + event.getBlock().getZ() + ")!");
@@ -1049,26 +1044,28 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		// lighting something on fire the same as someone placing fire), or if it was fire spread (because the spread is unimportant--only the blocks it breaks
 		// are important, which are logged in logFireDamage())
 		if (event.getPlayer() == null && !event.getCause().equals(IgniteCause.SPREAD)) {
-			String cause;
+			String cause = null;
 			if (event.getCause() == IgniteCause.LAVA) {
-				cause = "some lava";
+				// try to find out if the lava that caused the fire was put there by someone
 				for (int x = event.getBlock().getX() - 1; x <= event.getBlock().getX() + 1; x++)
 					for (int y = event.getBlock().getY() - 1; y <= event.getBlock().getY() + 1; y++)
 						for (int z = event.getBlock().getZ() - 1; z <= event.getBlock().getZ() + 1; z++)
 							if (new Location(event.getBlock().getWorld(), x, y, z).getBlock().getType() == Material.STATIONARY_LAVA
 									|| new Location(event.getBlock().getWorld(), x, y, z).getBlock().getType() == Material.LAVA) {
-								String possible_cause = findCause("spread", "some lava", new Location(event.getBlock().getWorld(), x, y, z));
+								String possible_cause = findCause(true, "some lava", new Location(event.getBlock().getWorld(), x, y, z));
 								if (possible_cause != null) {
 									cause = possible_cause;
 									break;
 								}
 							}
+				if (cause == null)
+					return;
 			} else if (event.getCause() == IgniteCause.LIGHTNING)
 				cause = "some lightning";
 			else if (event.getCause() == IgniteCause.FIREBALL)
 				cause = "a fireball";
 			else
-				cause = "something";
+				return;
 			events.add(new Event(cause, "set fire to", event.getBlock(), null));
 		}
 	}
@@ -1098,6 +1095,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void logWaterAndLavaPlacement(PlayerBucketEmptyEvent event) {
+		// TODO track lava/water mixing to form cobblestone, stone, or obsidian
 		if (event.isCancelled())
 			return;
 		if (event.getBucket() == Material.WATER_BUCKET)
@@ -1118,15 +1116,46 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public void logWaterAndLavaRemoval(PlayerBucketFillEvent event) {
 		if (event.isCancelled())
 			return;
+		Location event_location = event.getBlockClicked().getRelative(event.getBlockFace()).getLocation();
+		String object = myPluginWiki.getItemName(event_location.getBlock(), true, true, false);
+		if (object == null) {
+			object = "something with the I.D. " + event_location.getBlock().getTypeId();
+			if (event_location.getBlock().getData() > 0)
+				object += ":" + event_location.getBlock().getData();
+		} else
+			object = replaceAll(object, "stationary ", "");
+		events.add(new Event(event.getPlayer().getName(), "removed", object, event_location, event.getPlayer().getGameMode() == GameMode.CREATIVE));
+		// lava flows at 1.5 s/m = 30 ticks/m (+1 buffer tick)
+		long delay = 31;
 		if (event.getBucket() == Material.WATER_BUCKET)
-			events.add(new Event(event.getPlayer().getName(), "removed", "some water", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
-					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-		else if (event.getBucket() == Material.LAVA_BUCKET)
-			events.add(new Event(event.getPlayer().getName(), "removed", "some lava", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
-					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-		else
-			events.add(new Event(event.getPlayer().getName(), "removed", "something", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
-					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
+			// water flows at 4m/s = 5 ticks/m (+1 buffer tick)
+			delay = 6;
+		for (int i = 0; i < 5; i++) {
+			int x = event_location.getBlockX(), y = event_location.getBlockY(), z = event_location.getBlockZ();
+			if (i == 0)
+				x--;
+			else if (i == 1)
+				x++;
+			else if (i == 2)
+				y--;
+			else if (i == 3)
+				z--;
+			else
+				z++;
+			Location location = new Location(event_location.getWorld(), x, y, z);
+			if (location.getBlock().isLiquid()) {
+				String new_event_object = myPluginWiki.getItemName(location.getBlock(), true, true, false);
+				if (new_event_object == null)
+					new_event_object = "something";
+				else
+					new_event_object = myGuardDog.replaceAll(object, "stationary ", "");
+				myGuardDog.server.getScheduler().scheduleSyncDelayedTask(
+						myGuardDog.mGD,
+						new myGuardDog$1(event.getPlayer(), "track liquid recession", new Event(event.getPlayer().getName(), "removed", new_event_object, location, event
+								.getPlayer().getGameMode() == GameMode.CREATIVE)), delay);
+			}
+		}
+		new myGuardDog$1(event.getPlayer(), "track liquid recession", delay).run();
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -1264,7 +1293,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	// loading
 	public void loadTheLockedBlocks(CommandSender sender) {
 		locked_blocks = new HashMap<Block, String>();
-		File locked_blocks_file = new File(getDataFolder(), "locked_blocks.txt");
+		File locked_blocks_file = new File(getDataFolder(), "locked blocks.txt");
 		// read the locked blocks.txt file
 		try {
 			if (!locked_blocks_file.exists()) {
@@ -1322,7 +1351,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		if (!locked_blocks_file.exists()) {
 			getDataFolder().mkdir();
 			try {
-				sender.sendMessage(ChatColor.GREEN + "I couldn't find a locked blocks.txt file. I'll make a new one.");
+				sender.sendMessage(ChatColor.YELLOW + "I couldn't find a locked blocks.txt file. I'll make a new one.");
 				locked_blocks_file.createNewFile();
 			} catch (IOException exception) {
 				sender.sendMessage(ChatColor.DARK_RED + "I couldn't create a locked blocks.txt file! Oh nos!");
@@ -1330,7 +1359,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				return;
 			}
 		}
-		// save the warps
+		// save the locked blocks
 		try {
 			BufferedWriter out = new BufferedWriter(new FileWriter(locked_blocks_file));
 			for (int i = 0; i < locked_blocks.size(); i++) {
@@ -1338,7 +1367,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				// save line format:
 				// [player] locked [block type] at ([x], [y], [z]) in "[world]".
 				out.write(locked_blocks.get(block) + " locked " + myPluginWiki.getItemName(block, false, true, false) + " at (" + block.getX() + ", " + block.getY() + ", "
-						+ block.getZ() + " in \"" + block.getWorld().getWorldFolder().getName() + "\".");
+						+ block.getZ() + ") in \"" + block.getWorld().getWorldFolder().getName() + "\".");
 				if (i < locked_blocks.size() - 1)
 					out.newLine();
 			}
@@ -1350,18 +1379,18 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		}
 		if (display_message) {
 			if (locked_blocks.size() > 1)
-				sender.sendMessage(ChatColor.GREEN + "Your " + locked_blocks.size() + " locked blocks have been saved.");
+				sender.sendMessage(ChatColor.YELLOW + "Your " + locked_blocks.size() + " locked blocks have been saved.");
 			else if (locked_blocks.size() == 1)
-				sender.sendMessage(ChatColor.GREEN + "Your 1 locked block has been saved.");
+				sender.sendMessage(ChatColor.YELLOW + "Your 1 locked block has been saved.");
 			else
-				sender.sendMessage(ChatColor.GREEN + "You have no locked blocks to save!");
+				sender.sendMessage(ChatColor.YELLOW + "You have no locked blocks to save!");
 			if (sender instanceof Player)
 				if (locked_blocks.size() > 1)
-					console.sendMessage(ChatColor.GREEN + ((Player) sender).getName() + " saved " + locked_blocks.size() + " locked blocks to file.");
+					console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName() + " saved " + locked_blocks.size() + " locked blocks to file.");
 				else if (locked_blocks.size() == 1)
-					console.sendMessage(ChatColor.GREEN + ((Player) sender).getName() + " saved the server's 1 locked block to file.");
+					console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName() + " saved the server's 1 locked block to file.");
 				else
-					console.sendMessage(ChatColor.GREEN + ((Player) sender).getName()
+					console.sendMessage(ChatColor.YELLOW + ((Player) sender).getName()
 							+ " tried to save the server's locked blocks to file, but there were no locked blocks on the server to save.");
 		}
 	}

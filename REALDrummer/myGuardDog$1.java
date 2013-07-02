@@ -12,6 +12,7 @@ import java.util.HashMap;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -27,6 +28,8 @@ public class myGuardDog$1 implements Runnable {
 
 	// for trackTNT()
 	private Entity new_primed_TNT = null;
+	// for trackLiquidRecession()
+	private long delay;
 	// for all the saveTheLogs[...]() methods
 	private ArrayList<Event> events_to_save = new ArrayList<Event>();
 	private int iterations = 0;
@@ -70,6 +73,8 @@ public class myGuardDog$1 implements Runnable {
 			trackReactionBreaks((Event) os[0]);
 		else if (method.equals("track Enderman placements"))
 			trackEndermanPlacements((Block) os[0]);
+		else if (method.equals("track liquid recession"))
+			trackLiquidRecession((Event) os[0]);
 		else if (method.equals("save the logs") || method.equals("hard save")) {
 			first_iteration = true;
 			display_message = (Boolean) os[0];
@@ -161,6 +166,36 @@ public class myGuardDog$1 implements Runnable {
 				}
 			} else
 				myGuardDog.events.add(new_event);
+	}
+
+	private void trackLiquidRecession(Event new_event) {
+		// if the type I.D. of the block logged in the event is air, log it as a removal
+		if (new_event.location.getBlock().getType() == Material.AIR) {
+			myGuardDog.events.add(new_event);
+			for (int i = 0; i < 5; i++) {
+				int x = new_event.location.getBlockX(), y = new_event.location.getBlockY(), z = new_event.location.getBlockZ();
+				if (i == 0)
+					x--;
+				else if (i == 1)
+					x++;
+				else if (i == 2)
+					y--;
+				else if (i == 3)
+					z--;
+				else
+					z++;
+				Location location = new Location(new_event.location.getWorld(), x, y, z);
+				if (location.getBlock().isLiquid()) {
+					String object = myPluginWiki.getItemName(location.getBlock(), true, true, false);
+					if (object == null)
+						object = "something";
+					else
+						object = myGuardDog.replaceAll(object, "stationary ", "");
+					myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD,
+							new myGuardDog$1(sender, "track liquid recession", new Event(new_event.cause, "removed", object, location, new_event.in_Creative_Mode)), delay);
+				}
+			}
+		}
 	}
 
 	private void saveTheLogsPartIChrono() {
@@ -578,6 +613,10 @@ public class myGuardDog$1 implements Runnable {
 								+ "\" comes right after 3, right? Oh, wait. No it doesn't. In fact, it's not an integer at all. Try again.");
 						return;
 					}
+				else {
+					sender.sendMessage(ChatColor.RED + "I'm not sure that I understand what \"" + parameters[i] + "\" means.");
+					return;
+				}
 			}
 			// find all the relevant log files
 			if (causes.size() > 0)
@@ -680,7 +719,19 @@ public class myGuardDog$1 implements Runnable {
 					BufferedReader in =
 							new BufferedReader(new FileReader(new File(myGuardDog.position_logs_folder, "x = " + event.x + " " + event.world.getWorldFolder().getName()
 									+ ".txt")));
-					// TODO: figure out when events need to be cancelled because later events that don't need to be rolled back have occurred
+					String my_save_line = in.readLine();
+					Event my_event = new Event(my_save_line);
+					// do not roll back this event if there is an event at the same location that was a more recent, opposite event by someone whose
+					// actions aren't being rolled back
+					while (my_save_line != null
+							&& !my_event.equals(event)
+							&& (!my_event.location.equals(event.location) || (!(my_event.isPlacement() && event.isRemoval() || my_event.isRemoval() && event.isPlacement()) && !causes
+									.contains(my_event.cause)))) {
+						my_save_line = in.readLine();
+						my_event = new Event(my_save_line);
+					}
+					if (!my_event.equals(event))
+						continue;
 					// ORDER: remove all liquids (part 1), then remove all blocks that must be attached to something (part 1), then roll back solid
 					// blocks with sand and gravel organized from bottom to top for replacement (part 2) and top to bottom for removal (part 3), then
 					// replace blocks that must be attached to something (part 4), then replace liquids (part 4)
