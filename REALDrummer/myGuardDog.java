@@ -567,7 +567,9 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			else
 				z++;
 			Location location = new Location(break_event.world, x, break_event.y, z);
-			if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
+			if (myPluginWiki.mustBeAttached(location.getBlock(), false) == null)
+				continue;
+			else if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 				server.getScheduler().scheduleSyncDelayedTask(
 						this,
 						new myGuardDog$1(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true,
@@ -862,7 +864,15 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			else if ((event.getClickedBlock().getType() == Material.CHEST || event.getClickedBlock().getType() == Material.LOCKED_CHEST
 					|| event.getClickedBlock().getType() == Material.TRAPPED_CHEST || event.getClickedBlock().getType() == Material.ENDER_CHEST)
 					&& !event.getPlayer().isSneaking())
-				events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
+				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
+						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
+						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+					event.setCancelled(true);
+					event.getPlayer().sendMessage(
+							ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " belongs to "
+									+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
+				} else
+					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
