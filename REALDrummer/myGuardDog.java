@@ -567,9 +567,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			else
 				z++;
 			Location location = new Location(break_event.world, x, break_event.y, z);
-			if (myPluginWiki.mustBeAttached(location.getBlock(), false) == null)
+			if (myPluginWiki.mustBeAttached(location.getBlock(), false) == null) {
+				console.sendMessage(ChatColor.DARK_RED + "Hey! For some reason, myPluginWiki can't find info on an item with the I.D. " + location.getBlock().getTypeId()
+						+ "!");
 				continue;
-			else if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
+			} else if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 				server.getScheduler().scheduleSyncDelayedTask(
 						this,
 						new myGuardDog$1(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true,
@@ -1165,7 +1167,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 								.getPlayer().getGameMode() == GameMode.CREATIVE)), delay);
 			}
 		}
-		new myGuardDog$1(event.getPlayer(), "track liquid recession", delay).run();
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)

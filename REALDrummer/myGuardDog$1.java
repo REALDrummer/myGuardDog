@@ -73,9 +73,10 @@ public class myGuardDog$1 implements Runnable {
 			trackReactionBreaks((Event) os[0]);
 		else if (method.equals("track Enderman placements"))
 			trackEndermanPlacements((Block) os[0]);
-		else if (method.equals("track liquid recession"))
+		else if (method.equals("track liquid recession")) {
+			delay = (Long) os[1];
 			trackLiquidRecession((Event) os[0]);
-		else if (method.equals("save the logs") || method.equals("hard save")) {
+		} else if (method.equals("save the logs") || method.equals("hard save")) {
 			first_iteration = true;
 			display_message = (Boolean) os[0];
 			if (method.equals("hard save")) {
