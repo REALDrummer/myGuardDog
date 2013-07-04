@@ -616,7 +616,9 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler
 	public void stopHaltedPlayersFromMoving(PlayerMoveEvent event) {
-		if (halted_players.contains(event.getPlayer().getName()))
+		if (halted_players.contains(event.getPlayer().getName())
+		// only cancel movement events that change the player's coordinates; don't cancel looking movements
+				&& !(event.getFrom().getX() == event.getTo().getX() && event.getFrom().getY() == event.getTo().getY() && event.getFrom().getZ() == event.getTo().getZ()))
 			event.setCancelled(true);
 	}
 
@@ -1164,7 +1166,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 				myGuardDog.server.getScheduler().scheduleSyncDelayedTask(
 						myGuardDog.mGD,
 						new myGuardDog$1(event.getPlayer(), "track liquid recession", new Event(event.getPlayer().getName(), "removed", new_event_object, location, event
-								.getPlayer().getGameMode() == GameMode.CREATIVE)), delay);
+								.getPlayer().getGameMode() == GameMode.CREATIVE), delay), delay);
 			}
 		}
 	}
@@ -1462,8 +1464,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			String save_line = in.readLine();
 			while (save_line != null) {
 				Event event = new Event(save_line);
-				// since we're reading the position log, there's no need to check if the x and z are right
-				if (event.y == position.getBlockY()) {
+				// since we're reading the position log, there's no need to check if the x is right
+				if (event.y == position.getBlockY() && event.z == position.getBlockZ()) {
 					if (other_relevant_events < 2 * times_clicked)
 						other_relevant_events++;
 					// if we already have five events that need displaying and we find another after it, we can end the search here and tell the inspector that
