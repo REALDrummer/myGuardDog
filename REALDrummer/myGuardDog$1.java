@@ -28,8 +28,6 @@ public class myGuardDog$1 implements Runnable {
 
 	// for trackTNT()
 	private Entity new_primed_TNT = null;
-	// for trackLiquidRecession()
-	private long delay;
 	// for all the saveTheLogs[...]() methods
 	private ArrayList<Event> events_to_save = new ArrayList<Event>();
 	private int iterations = 0;
@@ -75,10 +73,9 @@ public class myGuardDog$1 implements Runnable {
 			trackReactionBreaks((Event) os[0]);
 		else if (method.equals("track Enderman placements"))
 			trackEndermanPlacements((Block) os[0]);
-		else if (method.equals("track liquid recession")) {
-			delay = (Long) os[1];
+		else if (method.equals("track liquid recession"))
 			trackLiquidRecession((Event) os[0]);
-		} else if (method.equals("save the logs") || method.equals("hard save")) {
+		else if (method.equals("save the logs") || method.equals("hard save")) {
 			first_iteration = true;
 			display_message = (Boolean) os[0];
 			if (method.equals("hard save")) {
@@ -141,7 +138,7 @@ public class myGuardDog$1 implements Runnable {
 	private void trackTNT(Location location, String cause) {
 		for (Entity entity : location.getWorld().getEntities())
 			// I chose 2 because the square root of 2 is the largest possible distance away from the block's location within a 1m radius
-			if (entity.getType() == EntityType.PRIMED_TNT && entity.getLocation().distanceSquared(location) < 5
+			if (entity.getType() == EntityType.PRIMED_TNT && entity.getLocation().distanceSquared(location) < 2
 					&& (new_primed_TNT == null || new_primed_TNT.getLocation().distanceSquared(location) > entity.getLocation().distanceSquared(location)))
 				new_primed_TNT = entity;
 		if (new_primed_TNT != null)
@@ -175,29 +172,7 @@ public class myGuardDog$1 implements Runnable {
 		// if the type I.D. of the block logged in the event is air, log it as a removal
 		if (new_event.location.getBlock().getType() == Material.AIR) {
 			myGuardDog.events.add(new_event);
-			for (int i = 0; i < 5; i++) {
-				int x = new_event.location.getBlockX(), y = new_event.location.getBlockY(), z = new_event.location.getBlockZ();
-				if (i == 0)
-					x--;
-				else if (i == 1)
-					x++;
-				else if (i == 2)
-					y--;
-				else if (i == 3)
-					z--;
-				else
-					z++;
-				Location location = new Location(new_event.location.getWorld(), x, y, z);
-				if (location.getBlock().isLiquid()) {
-					String object = myPluginWiki.getItemName(location.getBlock(), true, true, false);
-					if (object == null)
-						object = "something";
-					else
-						object = myGuardDog.replaceAll(object, "stationary ", "");
-					myGuardDog.server.getScheduler().scheduleSyncDelayedTask(myGuardDog.mGD,
-							new myGuardDog$1(sender, "track liquid recession", new Event(new_event.cause, "removed", object, location, new_event.in_Creative_Mode)), delay);
-				}
-			}
+			myGuardDog.checkForLiquidRecession(new_event);
 		}
 	}
 
@@ -267,7 +242,7 @@ public class myGuardDog$1 implements Runnable {
 				// minimum events to take 1 second = 1s * 20ticks/s * (100 events / 10 ticks) = 200 events
 				if (events_to_save.size() > 200)
 					sender.sendMessage(ChatColor.YELLOW + "All right. Just give me "
-							+ myGuardDog.translateTimeInmsToString(10 * events_to_save.size() / 100 / 20 * 1000, true) + " to save your files.");
+							+ myPluginUtils.translateTimeInmsToString(10 * events_to_save.size() / 100 / 20 * 1000, true) + " to save your files.");
 			}
 			BufferedWriter out = new BufferedWriter(new FileWriter(log_file, true));
 			for (int i = 100 * iterations; i < 100 * (iterations + 1); i++) {
@@ -535,7 +510,7 @@ public class myGuardDog$1 implements Runnable {
 									autocompleted = non_player_cause;
 							}
 						} else
-							autocompleted = myGuardDog.getFullName(search);
+							autocompleted = myPluginUtils.getFullName(search);
 						if (autocompleted == null) {
 							sender.sendMessage(ChatColor.RED + "Who's \"" + search + "\"?");
 							sender.sendMessage(ChatColor.RED
@@ -826,7 +801,7 @@ public class myGuardDog$1 implements Runnable {
 				// give the command sender an estimated time of completion if there are more than 100 to roll back (it will take 50ms to roll back
 				// one event)
 				sender.sendMessage(ChatColor.YELLOW + "I found " + roll_back_events.size() + " events that fit your criteria. This will take about "
-						+ myGuardDog.translateTimeInmsToString(roll_back_events.size() * 50, true) + " to roll back. Here we go.");
+						+ myPluginUtils.translateTimeInmsToString(roll_back_events.size() * 50, true) + " to roll back. Here we go.");
 		}
 		Event event = roll_back_events.get(iterations);
 		// this part restores mobs (but only non-hostile animals, of course)

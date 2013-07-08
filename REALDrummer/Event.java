@@ -9,7 +9,6 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
 
 public class Event {
@@ -31,12 +30,7 @@ public class Event {
 
 	public Event(String cause, String action, Entity object, Boolean in_Creative_Mode) {
 		objects = new String[1];
-		// try getting the item name with the I.D. and data provided
-		if (object instanceof Villager)
-			// villager = 120
-			objects[0] = myPluginWiki.getEntityName(120, (byte) ((Villager) object).getProfession().getId(), true, true);
-		else
-			objects[0] = myPluginWiki.getEntityName(object.getType().getTypeId(), (byte) -1, true, true);
+		objects[0] = myPluginWiki.getEntityName(object, true, true, false);
 		initializeOtherVariables(cause, action, object.getLocation(), in_Creative_Mode);
 	}
 
@@ -87,7 +81,7 @@ public class Event {
 		// On [month]/[day]/[year] at [hour]:[minute]:[second], [cause] [action] [objects] at ([x], [y], [z]) in
 		// "[world]"(" while in ["Creative"/"Survival"] Mode").
 		save_line = "On " + getDate('/') + " at " + getTime(':');
-		String formatted_action = action, formatted_object = myGuardDog.arrayToList(objects);
+		String formatted_action = action, formatted_object = myPluginUtils.arrayToList(objects);
 		// special action: ...dyed a [color] sheep [new color]...
 		if (action.startsWith("dyed") && objects != null && objects.length == 1) {
 			formatted_action = "dyed";
@@ -149,7 +143,7 @@ public class Event {
 			action = "took down";
 		// for three-item object lists:
 		// the "+ 6" = 4 for the seconds time and the comma and space that follow, 1 for the space after the cause, and one for the space after the action
-		objects = myGuardDog.listToArray(save_line.split(" at ")[1].split(":")[2].substring(cause.length() + action.length() + 6));
+		objects = myPluginUtils.listToArray(save_line.split(" at ")[1].split(":")[2].substring(cause.length() + action.length() + 6));
 		// special action: ...dyed a [color] sheep [new color]...
 		if (action.equals("dyed") && objects.length == 1) {
 			String wool_color = null;

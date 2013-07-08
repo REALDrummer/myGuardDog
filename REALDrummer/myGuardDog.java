@@ -18,7 +18,6 @@ import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -64,14 +63,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public static ArrayList<Event> events = new ArrayList<Event>();
 	public static String[] parameters, enable_messages = { "Server secured.", "BEWARE; MYGUARDDOG.", "Target: Griefers...TARGET LOCKED",
 			"Anti-Griefing shields at full power, Captain. Awaiting orders...", "Hasta la vista, griefers." }, disable_messages = { "Until we meet again, pathetic griefers.",
-			"Griefers have been successfully pwnd.", "Off duty? There is no such thing.", "Though I am disabled, I do not sleep. Your server is under my protection." },
-			yeses = { "yes", "yea", "yep", "ja", "sure", "why not", "okay", "do it", "fine", "whatever", "w/e", "very well", "accept", "tpa", "cool", "hell yeah",
-					"hells yeah", "hells yes", "come", "k ", "kk" }, nos = { "no ", "nah", "nope", "no thanks", "no don't", "shut up", "ignore", "it's not", "its not",
-					"creeper", "unsafe", "wait", "one ", "1 " };
+			"Griefers have been successfully pwnd.", "Off duty? There is no such thing.", "Though I am disabled, I do not sleep. Your server is under my protection." };
 	public static File logs_folder, chrono_logs_folder, position_logs_folder, cause_logs_folder;
 	public static boolean roll_back_in_progress = false, save_in_progress = false, hard_save = false;
 	// player_to_inform_of_[...]: keys=player names and values=admin name or "console" who performed the command
-	private static HashMap<String, String> players_to_inform_of_halting = new HashMap<String, String>(), players_to_inform_of_muting = new HashMap<String, String>();
+	private static HashMap<String, String> players_to_inform_of_halting = new HashMap<String, String>();
 	// players_questioned_about_rollback = new HashMap<player's name or "the console", parameters of the rollback>
 	private static HashMap<String, String[]> players_questioned_about_rollback = new HashMap<String, String[]>();
 	public static HashMap<String, ArrayList<String>> trust_list = new HashMap<String, ArrayList<String>>(), info_messages = new HashMap<String, ArrayList<String>>();
@@ -83,6 +79,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public static HashMap<Block, String> locked_blocks = new HashMap<Block, String>();
 
 	// TODO: make sure arrayToList() and listToArray() are only used on lists of items and blocks!!
+	// TODO ALL PLUGINS: replace "console.sendMessage(" methods with "tellOps(" methods wherever possible
 	// TODO: change all the parts where cause can be "something" or "some lava" to not logging
 	// TODO: make /busy top (#) show the busiest people on the server by comparing the sizes of the cause log files
 	// TODO: make a turn on PvP command for specific players
@@ -118,6 +115,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		// save the server data
 		new myGuardDog$1(console, "hard save", true, null).run();
 		saveTheLockedBlocks(console, true);
+		autosave_timer.stop();
 		// done disabling
 		String disable_message = disable_messages[(int) (Math.random() * disable_messages.length)];
 		console.sendMessage(ChatColor.YELLOW + disable_message);
@@ -129,37 +127,53 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	public boolean onCommand(CommandSender sender, Command cmd, String command, String[] my_parameters) {
 		parameters = my_parameters;
 		if (command.equalsIgnoreCase("halt")) {
-			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.halt") || sender.hasPermission("myguarddog.admin"))
-				if (parameters.length > 0) {
-					for (Player player : server.getOnlinePlayers())
-						if (player.getName().toLowerCase().startsWith(parameters[0].toLowerCase())
-								&& ((!player.isOp() && !player.hasPermission("myguarddog.admin")) || (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")))) {
-							halted_players.add(player.getName());
-							sender.sendMessage(ChatColor.YELLOW + player.getName() + " has been halted.");
-							if (sender instanceof Player)
-								player.sendMessage(ChatColor.YELLOW + sender.getName() + " halted you. Don't move and don't try to commands.");
-							else
-								player.sendMessage(ChatColor.YELLOW + "Someone on the console halted you. Don't move and don't try to commands.");
-							break;
-						} else if (player.getName().toLowerCase().startsWith(parameters[0].toLowerCase()))
-							sender.sendMessage(ChatColor.RED + "Hey! You can't halt another op!");
-					for (OfflinePlayer player : server.getOfflinePlayers())
-						if (player.getName().toLowerCase().startsWith(parameters[0].toLowerCase())
-								&& (!player.isOp() || (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")))) {
-							halted_players.add(player.getName());
-							sender.sendMessage(ChatColor.YELLOW + player.getName() + " has been halted.");
-							if (sender instanceof Player)
-								players_to_inform_of_halting.put(player.getName(), ChatColor.YELLOW + sender.getName() + " halted you. Don't try to move or use commands.");
-							else
-								players_to_inform_of_halting.put(player.getName(), ChatColor.YELLOW + "Someone on the console halted you. Don't try to move or use commands.");
-							break;
-						} else if (player.getName().toLowerCase().startsWith(parameters[0].toLowerCase()))
-							sender.sendMessage(ChatColor.RED + "Hey! You can't halt another op!");
-					sender.sendMessage(ChatColor.RED + "Sorry, but I don't know who \"" + parameters[0] + "\" is.");
-				} else
-					sender.sendMessage(ChatColor.RED + "You forgot to tell me who to halt!");
-			else
+			if (sender instanceof Player && !sender.hasPermission("myguarddog.halt") && !sender.hasPermission("myguarddog.admin"))
 				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to halt people.");
+			else if (parameters.length == 0)
+				sender.sendMessage(ChatColor.RED + "You forgot to tell me who to halt!");
+			else {
+				Player target = server.getPlayerExact(myPluginUtils.getFullName(parameters[0]));
+				if (target == null) {
+					sender.sendMessage(ChatColor.RED + "I couldn't find anyone named \"" + parameters[0] + "\"!");
+					return true;
+				} else if (halted_players.contains(target.getName())) {
+					sender.sendMessage(ChatColor.RED + "Someone already halted " + target.getName() + ".");
+					return true;
+				}
+				halted_players.add(target.getName());
+				sender.sendMessage(ChatColor.YELLOW + "I halted " + target.getName() + ".");
+				String sender_name = "someone on the console";
+				if (sender instanceof Player)
+					sender_name = sender.getName();
+				target.sendMessage(ChatColor.YELLOW + "Don't move or try to use commands; " + sender_name + " halted you.");
+				myPluginUtils.tellOps(ChatColor.YELLOW + sender.getName().substring(0, 1).toUpperCase() + sender.getName().substring(1) + " halted " + target.getName() + ".",
+						sender instanceof Player, sender.getName(), target.getName());
+			}
+			return true;
+		} else if (command.equalsIgnoreCase("unhalt")) {
+			if (sender instanceof Player && !sender.hasPermission("myguarddog.unhalt") && !sender.hasPermission("myguarddog.admin"))
+				sender.sendMessage(ChatColor.RED + "Sorry, but you don't have permission to unhalt people.");
+			else if (parameters.length == 0)
+				sender.sendMessage(ChatColor.RED + "You forgot to tell me who to unhalt!");
+			else {
+				Player target = server.getPlayerExact(myPluginUtils.getFullName(parameters[0]));
+				if (target == null) {
+					sender.sendMessage(ChatColor.RED + "I couldn't find anyone named \"" + parameters[0] + "\"!");
+					return true;
+				} else if (!halted_players.contains(target.getName())) {
+					sender.sendMessage(ChatColor.RED + "No one has halted " + target.getName() + ".");
+					return true;
+				}
+				sender.sendMessage(ChatColor.YELLOW + "Very well. I will unhalt " + target.getName() + ".");
+				halted_players.remove(target.getName());
+				String sender_name = "someone on the console";
+				if (sender instanceof Player)
+					sender_name = sender.getName();
+				target.sendMessage(ChatColor.YELLOW + "You're free to go; " + sender_name + " unhalted you.");
+				myPluginUtils.tellOps(ChatColor.YELLOW + sender.getName().substring(0, 1).toUpperCase() + sender.getName().substring(1) + " unhalted " + target.getName()
+						+ ".", sender instanceof Player, sender.getName(), target.getName());
+			}
+			return true;
 		} else if ((command.equalsIgnoreCase("mGD") || command.equalsIgnoreCase("myGuardDog")) && parameters.length > 1 && parameters[0].equalsIgnoreCase("save")
 				&& (parameters[1].equalsIgnoreCase("logs") || (parameters.length > 2 && parameters[1].equalsIgnoreCase("the") && parameters[2].equalsIgnoreCase("logs")))) {
 			if (!(sender instanceof Player) || sender.hasPermission("myguarddog.admin")) {
@@ -221,236 +235,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	// intra-command methods
-	public static String replaceAll(String to_return, String... changes) {
-		for (int j = 0; j < changes.length; j += 2) {
-			if (!to_return.toLowerCase().contains(changes[j].toLowerCase()))
-				return to_return;
-			for (int i = 0; to_return.length() >= i + changes[j].length(); i++) {
-				if (to_return.substring(i, i + changes[j].length()).equalsIgnoreCase(changes[j])) {
-					to_return = to_return.substring(0, i) + changes[j + 1] + to_return.substring(i + changes[j].length());
-					i += changes[j + 1].length() - 1;
-				}
-				if (!to_return.toLowerCase().contains(changes[j].toLowerCase()))
-					break;
-			}
-		}
-		return to_return;
-	}
-
-	public static String arrayToList(String[] objects, String... options) {
-		String separator = ", ", final_conjunction = "and";
-		if (options.length > 0 && options[0] != null)
-			separator = options[0];
-		if (options.length > 1 && options[1] != null)
-			final_conjunction = options[1];
-		if (objects.length == 0)
-			return "";
-		else if (objects.length == 1)
-			return objects[0];
-		else if (objects.length == 2)
-			return objects[0] + " " + final_conjunction + " " + objects[1];
-		else {
-			String list = "";
-			for (int i = 0; i < objects.length; i++) {
-				list += objects[i];
-				if (i <= objects.length - 1) {
-					list += separator;
-					if (i == objects.length - 2)
-						list += final_conjunction + " ";
-				}
-			}
-			return list;
-		}
-	}
-
-	public static String[] listToArray(String list, String... options) {
-		String[] objects = null;
-		String separator = ", ", final_conjunction = "and";
-		if (options.length > 0 && options[0] != null)
-			separator = options[0];
-		if (options.length > 1 && options[1] != null)
-			final_conjunction = options[1];
-		// for 3+-item lists
-		if (list.contains(separator)) {
-			objects = list.split(separator);
-			// remove the final conjunction (usually "and") at the beginning of the list object
-			objects[objects.length - 1] = objects[objects.length - 1].substring(final_conjunction.length() + 1);
-		}
-		// for 2-item lists
-		else if (list.contains(" " + final_conjunction + " "))
-			return list.split(" " + final_conjunction + " ");
-		// for 1-item lists
-		else
-			return new String[] { list };
-		return objects;
-	}
-
-	public static String getFullName(String name) {
-		String full_name = null;
-		for (Player possible_owner : server.getOnlinePlayers())
-			// if this player's name also matches and it shorter, return it instead becuase if someone is using an autocompleted command, we need to make sure
-			// to get the shortest name because if they meant to use the longer username, they can remedy this by adding more letters to the parameter; however,
-			// if they meant to do a shorter username and the auto-complete finds the longer one first, they're screwed
-			if (possible_owner.getName().toLowerCase().startsWith(name.toLowerCase()) && (full_name == null || full_name.length() > possible_owner.getName().length()))
-				full_name = possible_owner.getName();
-		for (OfflinePlayer possible_owner : server.getOfflinePlayers())
-			if (possible_owner.getName().toLowerCase().startsWith(name.toLowerCase()) && (full_name == null || full_name.length() > possible_owner.getName().length()))
-				full_name = possible_owner.getName();
-		return full_name;
-	}
-
-	public static Boolean getResponse(CommandSender sender, String unformatted_response, String current_status_line, String current_status_is_true_message) {
-		boolean said_yes = false, said_no = false;
-		String formatted_response = unformatted_response;
-		// elimiate unnecessary spaces and punctuation
-		while (formatted_response.startsWith(" "))
-			formatted_response = formatted_response.substring(1);
-		while (formatted_response.endsWith(" "))
-			formatted_response = formatted_response.substring(0, formatted_response.length() - 1);
-		formatted_response = formatted_response.toLowerCase();
-		// check their response
-		for (String yes : yeses)
-			if (formatted_response.startsWith(yes))
-				said_yes = true;
-		if (said_yes)
-			return true;
-		else {
-			for (String no : nos)
-				if (formatted_response.startsWith(no))
-					said_no = true;
-			if (said_no)
-				return false;
-			else if (current_status_line != null) {
-				if (!formatted_response.equals("")) {
-					if (unformatted_response.substring(0, 1).equals(" "))
-						unformatted_response = unformatted_response.substring(1);
-					sender.sendMessage(ChatColor.RED + "I don't know what \"" + unformatted_response + "\" means.");
-				}
-				while (current_status_line.startsWith(" "))
-					current_status_line = current_status_line.substring(1);
-				if (current_status_line.startsWith(current_status_is_true_message))
-					return true;
-				else
-					return false;
-			} else
-				return null;
-		}
-	}
-
-	public static int translateStringtoTimeInms(String written) {
-		int time = 0;
-		String[] temp = written.split(" ");
-		ArrayList<String> words = new ArrayList<String>();
-		for (String word : temp)
-			if (!word.equalsIgnoreCase("and") && !word.equalsIgnoreCase("&"))
-				words.add(word.toLowerCase().replaceAll(",", ""));
-		while (words.size() > 0) {
-			// for formats like "2 days 3 minutes 5.57 seconds" or "3 d 5 m 12 s"
-			try {
-				double amount = Double.parseDouble(words.get(0));
-				if (words.get(0).contains("d") || words.get(0).contains("h") || words.get(0).contains("m") || words.get(0).contains("s"))
-					throw new NumberFormatException();
-				int factor = 0;
-				if (words.size() > 1) {
-					if (words.get(1).startsWith("d"))
-						factor = 86400000;
-					else if (words.get(1).startsWith("h"))
-						factor = 3600000;
-					else if (words.get(1).startsWith("m"))
-						factor = 60000;
-					else if (words.get(1).startsWith("s"))
-						factor = 1000;
-					if (factor > 0)
-						// since a double of, say, 1.0 is actually 0.99999..., (int)ing it will reduce exact numbers by one, so I added 0.1 to it to avoid that.
-						time = time + (int) (amount * factor + 0.1);
-					words.remove(0);
-					words.remove(0);
-				} else
-					words.remove(0);
-			} catch (NumberFormatException exception) {
-				// if there's no space between the time and units, e.g. "2h, 5m, 25s" or "4hours, 3min, 2.265secs"
-				double amount = 0;
-				int factor = 0;
-				try {
-					if (words.get(0).contains("d") && (!words.get(0).contains("s") || words.get(0).indexOf("s") > words.get(0).indexOf("d"))) {
-						amount = Double.parseDouble(words.get(0).split("d")[0]);
-						console.sendMessage("amount should=" + words.get(0).split("d")[0]);
-						factor = 86400000;
-					} else if (words.get(0).contains("h")) {
-						amount = Double.parseDouble(words.get(0).split("h")[0]);
-						factor = 3600000;
-					} else if (words.get(0).contains("m")) {
-						amount = Double.parseDouble(words.get(0).split("m")[0]);
-						factor = 60000;
-					} else if (words.get(0).contains("s")) {
-						amount = Double.parseDouble(words.get(0).split("s")[0]);
-						factor = 1000;
-					}
-					if (factor > 0)
-						// since a double of, say, 1.0 is actually 0.99999..., (int)ing it will reduce exact numbers by one, so I added 0.1 to it to avoid that.
-						time = time + (int) (amount * factor + 0.1);
-				} catch (NumberFormatException exception2) {
-				}
-				words.remove(0);
-			}
-		}
-		return time;
-	}
-
-	public static String translateTimeInmsToString(int time, boolean round_seconds) {
-		// get the values (e.g. "2 days" or "55.7 seconds")
-		ArrayList<String> values = new ArrayList<String>();
-		if (time > 86400000) {
-			if ((int) (time / 86400000) > 1)
-				values.add((int) (time / 86400000) + " days");
-			else
-				values.add("1 day");
-			time = time % 86400000;
-		}
-		if (time > 3600000) {
-			if ((int) (time / 3600000) > 1)
-				values.add((int) (time / 3600000) + " hours");
-			else
-				values.add("1 hour");
-			time = time % 3600000;
-		}
-		if (time > 60000) {
-			if ((int) (time / 60000) > 1)
-				values.add((int) (time / 60000) + " minutes");
-			else
-				values.add("1 minute");
-			time = time % 60000;
-		}
-		// add a seconds value if there is still time remaining or if there are no other values
-		if (time > 0 || values.size() == 0)
-			// if you have partial seconds and !round_seconds, it's written as a double so it doesn't truncate the decimals
-			if ((time / 1000.0) != (time / 1000) && !round_seconds)
-				values.add((time / 1000.0) + " seconds");
-			// if seconds are a whole number, just write it as a whole number (integer)
-			else if (Math.round(time / 1000) > 1)
-				values.add(Math.round(time / 1000) + " seconds");
-			else
-				values.add("1 second");
-		// if there are two or more values, add an "and"
-		if (values.size() >= 2)
-			values.add(values.size() - 1, "and");
-		// assemble the final String
-		String written = "";
-		for (int i = 0; i < values.size(); i++) {
-			// add spaces as needed
-			if (i > 0)
-				written = written + " ";
-			written = written + values.get(i);
-			// add commas as needed
-			if (values.size() >= 4 && i < values.size() - 1 && !values.get(i).equals("and"))
-				written = written + ",";
-		}
-		if (!written.equals(""))
-			return written;
-		else
-			return null;
-	}
-
 	public static String findCause(String[] actions, String[] objects, Location location) {
 		// first, read through the recent events saved in events
 		// make sure to read them backwards since the most recent events are at the end
@@ -554,7 +338,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		return null;
 	}
 
-	public void checkForReactionBreaks(Event break_event, ArrayList<Block> exempt_blocks) {
+	public static void checkForReactionBreaks(Event break_event, ArrayList<Block> exempt_blocks) {
 		// check the sides of the broken block for possible reaction breaks
 		for (int i = 0; i < 4; i++) {
 			int x = break_event.x, z = break_event.z;
@@ -569,11 +353,11 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			Location location = new Location(break_event.world, x, break_event.y, z);
 			if (myPluginWiki.mustBeAttached(location.getBlock(), false) == null) {
 				console.sendMessage(ChatColor.DARK_RED + "Hey! For some reason, myPluginWiki can't find info on an item with the I.D. " + location.getBlock().getTypeId()
-						+ "!");
+						+ "! Is myPluginWiki up to date?");
 				continue;
 			} else if (myPluginWiki.mustBeAttached(location.getBlock(), false) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 				server.getScheduler().scheduleSyncDelayedTask(
-						this,
+						mGD,
 						new myGuardDog$1(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true,
 								false), location, break_event.in_Creative_Mode)), 1);
 		}
@@ -581,9 +365,39 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		Location location = new Location(break_event.world, break_event.x, break_event.y + 1, break_event.z);
 		if (myPluginWiki.mustBeAttached(location.getBlock(), null) && (exempt_blocks == null || !exempt_blocks.contains(location.getBlock())))
 			server.getScheduler().scheduleSyncDelayedTask(
-					this,
+					mGD,
 					new myGuardDog$1(console, "track reaction breaks", new Event(break_event.cause, "broke", myPluginWiki.getItemName(location.getBlock(), true, true, false),
 							location, break_event.in_Creative_Mode)), 1);
+	}
+
+	public static void checkForLiquidRecession(Event removal_event) {
+		// lava flows at 1.5 s/m = 30 ticks/m (+1 buffer tick)
+		long delay = 31;
+		if (removal_event.objects[0].contains("water"))
+			// water flows at 4m/s = 5 ticks/m (+1 buffer tick)
+			delay = 6;
+		for (int i = 0; i < 5; i++) {
+			int x = removal_event.location.getBlockX(), y = removal_event.location.getBlockY(), z = removal_event.location.getBlockZ();
+			if (i == 0)
+				x--;
+			else if (i == 1)
+				x++;
+			else if (i == 2)
+				y--;
+			else if (i == 3)
+				z--;
+			else
+				z++;
+			Location location = new Location(removal_event.location.getWorld(), x, y, z);
+			if (location.getBlock().isLiquid()) {
+				String new_event_object = myPluginWiki.getItemName(location.getBlock(), true, true, false);
+				if (new_event_object != null)
+					server.getScheduler().scheduleSyncDelayedTask(
+							mGD,
+							new myGuardDog$1(server.getPlayerExact(removal_event.cause), "track liquid recession", new Event(removal_event.cause, "removed", new_event_object,
+									location, removal_event.in_Creative_Mode), delay), delay);
+			}
+		}
 	}
 
 	// listeners
@@ -593,29 +407,18 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 	}
 
 	@EventHandler
-	public void informPlayersTheyHaveBeenMutedAndOrHalted(PlayerJoinEvent event) {
+	public void informPlayersTheyHaveBeenHalted(PlayerJoinEvent event) {
+
 		if (!trust_list.containsKey(event.getPlayer().getName()))
 			trust_list.put(event.getPlayer().getName(), new ArrayList<String>());
 		if (players_to_inform_of_halting.containsKey(event.getPlayer().getName()))
-			if (players_to_inform_of_muting.containsKey(event.getPlayer().getName()))
-				if (players_to_inform_of_halting.get(event.getPlayer().getName()).equals(players_to_inform_of_muting.get(event.getPlayer().getName())))
-					event.getPlayer().sendMessage(
-							ChatColor.YELLOW + players_to_inform_of_halting.get(event.getPlayer().getName())
-									+ " halted and muted you. Don't move, don't try to use commands, and don't try to talk.");
-				else
-					event.getPlayer().sendMessage(
-							ChatColor.YELLOW + players_to_inform_of_halting.get(event.getPlayer().getName()) + " halted you and "
-									+ players_to_inform_of_muting.get(event.getPlayer().getName())
-									+ " muted you. Don't move, don't try to use commands, and don't try to talk.");
-			else
-				event.getPlayer().sendMessage(
-						ChatColor.YELLOW + players_to_inform_of_halting.get(event.getPlayer().getName()) + " halted you. Don't move and don't try to use commands.");
-		else if (players_to_inform_of_muting.containsKey(event.getPlayer().getName()))
-			event.getPlayer().sendMessage(players_to_inform_of_muting.get(event.getPlayer().getName()) + " muted you. You're not allowed to speak for the time being.");
+			event.getPlayer().sendMessage(
+					ChatColor.YELLOW + players_to_inform_of_halting.get(event.getPlayer().getName()) + " halted you. Don't move and don't try to use commands.");
 	}
 
 	@EventHandler
 	public void stopHaltedPlayersFromMoving(PlayerMoveEvent event) {
+
 		if (halted_players.contains(event.getPlayer().getName())
 		// only cancel movement events that change the player's coordinates; don't cancel looking movements
 				&& !(event.getFrom().getX() == event.getTo().getX() && event.getFrom().getY() == event.getTo().getY() && event.getFrom().getZ() == event.getTo().getZ()))
@@ -624,12 +427,14 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler
 	public void stopHaltedPlayersFromUsingCommands(PlayerCommandPreprocessEvent event) {
+
 		if (halted_players.contains(event.getPlayer().getName()))
 			event.setCancelled(true);
 	}
 
 	@EventHandler
 	public void stopMutedPlayersFromTalkingAndRecieveRollbackQuestionResponses(AsyncPlayerChatEvent event) {
+
 		if (muted_players.contains(event.getPlayer().getName())) {
 			event.setCancelled(true);
 			if (event.getMessage().contains("stfu") || event.getMessage().contains("shut up"))
@@ -639,7 +444,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			else
 				event.getPlayer().sendMessage(ChatColor.YELLOW + "Be quiet. You're not allowed to speak.");
 		} else if (players_questioned_about_rollback.containsKey(event.getPlayer().getName())) {
-			Boolean accepted = getResponse(event.getPlayer(), event.getMessage(), null, null);
+			Boolean accepted = myPluginUtils.getResponse(event.getPlayer(), event.getMessage(), null, null);
 			if (accepted != null && accepted) {
 				event.setCancelled(true);
 				if (events.size() > 200)
@@ -655,12 +460,12 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 
 	@EventHandler(priority = EventPriority.HIGH)
 	public void trackTNTMinecartActivations(VehicleMoveEvent event) {
-		if (!(event.getVehicle().getType() == EntityType.MINECART_TNT && !TNT_causes.containsKey(event.getVehicle().getUniqueId())
-				&& event.getTo().getBlock().getType() == Material.ACTIVATOR_RAIL && event.getTo().getBlock().isBlockIndirectlyPowered()))
-			return;
-		String cause = findCause("placed", "an activator rail", event.getTo());
-		if (cause != null)
-			TNT_causes.put(event.getVehicle().getUniqueId(), cause);
+		if (event.getVehicle().getType() == EntityType.MINECART_TNT && !TNT_causes.containsKey(event.getVehicle().getUniqueId())
+				&& event.getTo().getBlock().getType() == Material.ACTIVATOR_RAIL && event.getTo().getBlock().isBlockIndirectlyPowered()) {
+			String cause = findCause("placed", "an activator rail", event.getTo());
+			if (cause != null)
+				TNT_causes.put(event.getVehicle().getUniqueId(), cause);
+		}
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -715,10 +520,17 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			// log fire placement as ignition and don't log air placement because that makes no sense!
 			if (event.getBlock().getType() != Material.AIR && event.getBlock().getType() != Material.FIRE) {
 				events.add(new Event(event.getPlayer().getName(), "placed", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				if (event.getBlockReplacedState().getType() != Material.AIR)
-					events.add(new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event
-							.getBlockReplacedState().getData().getData(), true, true, false), event.getBlock().getLocation(),
-							event.getPlayer().getGameMode() == GameMode.CREATIVE));
+				if (event.getBlockReplacedState().getType() != Material.AIR) {
+					Event replacement_event =
+							new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event
+									.getBlockReplacedState().getData().getData(), true, true, false), event.getBlock().getLocation(),
+									event.getPlayer().getGameMode() == GameMode.CREATIVE);
+					events.add(replacement_event);
+					// track liquid recession
+					if (event.getBlockReplacedState().getType() == Material.WATER || event.getBlockReplacedState().getType() == Material.LAVA
+							|| event.getBlockReplacedState().getType() == Material.STATIONARY_WATER || event.getBlockReplacedState().getType() == Material.STATIONARY_LAVA)
+						checkForLiquidRecession(replacement_event);
+				}
 			} // consider "placing fire" the same as "setting fire to" something, but don't bother logging T.N.T. ignition
 			else if (event.getBlock().getType() == Material.FIRE && event.getBlockReplacedState().getType() != Material.TNT)
 				events.add(new Event(event.getPlayer().getName(), "set fire to", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
@@ -786,97 +598,48 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to unlock it.");
 			}
 		} // log switch usage and prevent the use of locked items
-		else if (event.getAction() == Action.PHYSICAL
-				&& (event.getClickedBlock().getType() == Material.STONE_PLATE || event.getClickedBlock().getType() == Material.WOOD_PLATE))
-			if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-					&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
-					&& !event.getPlayer().hasPermission("myguarddog.admin")) {
+		else {
+			Block block = event.getClickedBlock();
+			String action = null;
+			if (event.getAction() == Action.PHYSICAL && (block.getType() == Material.STONE_PLATE || block.getType() == Material.WOOD_PLATE))
+				action = "stepped on";
+			else if (event.getAction() == Action.RIGHT_CLICK_BLOCK && !event.getPlayer().isSneaking())
+				if (block.getType() == Material.LEVER)
+					action = "flipped";
+				else if (block.getType() == Material.STONE_BUTTON || block.getType() == Material.WOOD_BUTTON)
+					action = "pressed";
+				else if (block.getType() == Material.WOODEN_DOOR || block.getType() == Material.TRAP_DOOR || block.getType() == Material.FENCE_GATE) {
+					// if it's the top block of a door, data=8 or 9
+					if (block.getType() == Material.WOODEN_DOOR && block.getData() >= 8)
+						block =
+								new Location(block.getLocation().getWorld(), block.getLocation().getX(), block.getLocation().getY() - 1, block.getLocation().getZ())
+										.getBlock();
+					// if you're closing a door, data=4-7 (or 12-15 for trapdoors); if you're opening a door, data=0-3 (or 8-11 for trapdoors)
+					if (block.getData() < 4 || (block.getType() == Material.TRAP_DOOR && block.getData() > 7 && block.getData() < 12))
+						action = "opened";
+					else
+						action = "closed";
+				} // log plant bonemealing (bonemeal=351:15)
+				else if (event.getPlayer().getItemInHand().getTypeId() == 351
+						&& event.getPlayer().getItemInHand().getData().getData() == 15
+						&& (block.getType() == Material.SAPLING || block.getType() == Material.WHEAT || block.getType() == Material.CARROT
+								|| block.getType() == Material.POTATO || block.getType() == Material.BROWN_MUSHROOM || block.getType() == Material.RED_MUSHROOM
+								|| block.getType() == Material.GRASS || block.getType() == Material.COCOA || block.getType() == Material.MELON_STEM
+								|| block.getType() == Material.PUMPKIN_STEM || event.getClickedBlock().getType() == Material.NETHER_WARTS))
+					action = "bonemealed";
+				// log chest opening and closing
+				else if ((block.getType() == Material.CHEST || block.getType() == Material.LOCKED_CHEST || block.getType() == Material.TRAPPED_CHEST || block.getType() == Material.ENDER_CHEST)
+						&& !event.getPlayer().isSneaking())
+					action = "opened";
+			if (locked_blocks.containsKey(block) && !locked_blocks.get(block).equals(event.getPlayer().getName())
+					&& !trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName()) && !event.getPlayer().hasPermission("myguarddog.admin")) {
 				event.setCancelled(true);
 				event.getPlayer().sendMessage(
-						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " belongs to "
-								+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-			} else
-				events.add(new Event(event.getPlayer().getName(), "stepped on", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-		else if (event.getAction() == Action.RIGHT_CLICK_BLOCK && !event.getPlayer().isSneaking())
-			if (event.getClickedBlock().getType() == Material.LEVER)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
-						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this lever belongs to " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} else
-					events.add(new Event(event.getPlayer().getName(), "flipped", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getClickedBlock().getType() == Material.STONE_BUTTON || event.getClickedBlock().getType() == Material.WOOD_BUTTON)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
-						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " belongs to "
-									+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} else
-					events.add(new Event(event.getPlayer().getName(), "pressed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getClickedBlock().getType() == Material.WOODEN_DOOR) {
-				// if it's the top block of a door, data=8 or 9; if you're closing a door, data=4-7; if you're opening a door, data=0-3
-				Block block = event.getClickedBlock();
-				if (block.getData() >= 8)
-					block = new Location(block.getLocation().getWorld(), block.getLocation().getX(), block.getLocation().getY() - 1, block.getLocation().getZ()).getBlock();
-				if (locked_blocks.containsKey(block) && !locked_blocks.get(block).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName()) && !event.getPlayer().hasPermission("myguarddog.admin")) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(ChatColor.RED + "Sorry, but this wooden door belongs to " + locked_blocks.get(block) + " and you're not allowed to use it.");
-				} else if (block.getData() < 4)
-					events.add(new Event(event.getPlayer().getName(), "opened", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				else
-					events.add(new Event(event.getPlayer().getName(), "closed", block, event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			} else if (event.getClickedBlock().getType() == Material.TRAP_DOOR)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
-						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this trapdoor belongs to " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} // if you're closing a trapdoor, data=4-7 or 12-15; if you're opening a trapdoor, data=0-3 or 8-11
-				else if (event.getClickedBlock().getData() < 4 || (event.getClickedBlock().getData() >= 8 && event.getClickedBlock().getData() <= 11))
-					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				else
-					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			else if (event.getClickedBlock().getType() == Material.FENCE_GATE)
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
-						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this fence gate belongs to " + locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} // if you're closing a fence gate, data=4-7; if you're opening a fence gate, data=0-3
-				else if (event.getClickedBlock().getData() < 4)
-					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				else
-					events.add(new Event(event.getPlayer().getName(), "closed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			// log plant bonemealing (bonemeal=351:15)
-			else if (event.getPlayer().getItemInHand().getTypeId() == 351
-					&& event.getPlayer().getItemInHand().getData().getData() == 15
-					&& (event.getClickedBlock().getType() == Material.SAPLING || event.getClickedBlock().getType() == Material.WHEAT
-							|| event.getClickedBlock().getType() == Material.CARROT || event.getClickedBlock().getType() == Material.POTATO
-							|| event.getClickedBlock().getType() == Material.BROWN_MUSHROOM || event.getClickedBlock().getType() == Material.RED_MUSHROOM
-							|| event.getClickedBlock().getType() == Material.GRASS || event.getClickedBlock().getType() == Material.COCOA
-							|| event.getClickedBlock().getType() == Material.MELON_STEM || event.getClickedBlock().getType() == Material.PUMPKIN_STEM || event
-							.getClickedBlock().getType() == Material.NETHER_WARTS))
-				events.add(new Event(event.getPlayer().getName(), "bonemealed", event.getClickedBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-			// log chest opening and closing
-			else if ((event.getClickedBlock().getType() == Material.CHEST || event.getClickedBlock().getType() == Material.LOCKED_CHEST
-					|| event.getClickedBlock().getType() == Material.TRAPPED_CHEST || event.getClickedBlock().getType() == Material.ENDER_CHEST)
-					&& !event.getPlayer().isSneaking())
-				if (locked_blocks.containsKey(event.getClickedBlock()) && !locked_blocks.get(event.getClickedBlock()).equals(event.getPlayer().getName())
-						&& !trust_list.get(locked_blocks.get(event.getClickedBlock())).contains(event.getPlayer().getName())
-						&& !event.getPlayer().hasPermission("myguarddog.admin")) {
-					event.setCancelled(true);
-					event.getPlayer().sendMessage(
-							ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(event.getClickedBlock(), false, true, true) + " belongs to "
-									+ locked_blocks.get(event.getClickedBlock()) + " and you're not allowed to use it.");
-				} else
-					events.add(new Event(event.getPlayer().getName(), "opened", event.getClickedBlock(), event.getPlayer().getGameMode() == GameMode.CREATIVE));
+						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(block, false, true, true) + " belongs to " + locked_blocks.get(block)
+								+ " and you're not allowed to use it.");
+			} else if (action != null)
+				events.add(new Event(event.getPlayer().getName(), action, block, event.getPlayer().getGameMode() == GameMode.CREATIVE));
+		}
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -889,7 +652,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			cause = ((Player) event.getRemover()).getName();
 			in_Creative_Mode = ((Player) event.getRemover()).getGameMode().equals(GameMode.CREATIVE);
 		} else
-			cause = myPluginWiki.getEntityName(event.getRemover(), true, true);
+			cause = myPluginWiki.getEntityName(event.getRemover(), true, true, false);
 		events.add(new Event(cause, "took down", event.getEntity(), in_Creative_Mode));
 	}
 
@@ -906,7 +669,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			return;
 		// if the block it's trying to spread to can't be broken by liquds, it won't actually spread, so cancel the event
 		if (!myPluginWiki.canBeBrokenByLiquids(event.getToBlock()) && !myPluginWiki.canBeBrokenByLiquids(event.getBlock()) || !event.getToBlock().isLiquid()
-				&& !event.getBlock().isLiquid()) {
+				&& !event.getBlock().isLiquid() || event.getBlock().getType() == Material.AIR) {
 			event.setCancelled(true);
 			return;
 		}
@@ -925,8 +688,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			console.sendMessage(ChatColor.DARK_RED + "An unidentified BlockFromToEvent involving liquids occurred at (" + event.getBlock().getX() + ", "
 					+ event.getBlock().getY() + ", " + event.getBlock().getZ() + ")!");
 			console.sendMessage(ChatColor.YELLOW + event.getBlock().getType().toString() + ChatColor.WHITE + " (" + event.getBlock().getX() + ", " + event.getBlock().getY()
-					+ ", " + event.getBlock().getZ() + ") " + ChatColor.GRAY + ">> " + ChatColor.YELLOW + event.getToBlock().getType().toString() + ChatColor.WHITE + " ("
-					+ event.getToBlock().getX() + ", " + event.getToBlock().getY() + ", " + event.getToBlock().getZ() + ")");
+					+ ", " + event.getBlock().getZ() + ") " + ChatColor.DARK_GRAY + ">> " + ChatColor.YELLOW + event.getToBlock().getType().toString() + ChatColor.WHITE
+					+ " (" + event.getToBlock().getX() + ", " + event.getToBlock().getY() + ", " + event.getToBlock().getZ() + ")");
 			return;
 		}
 		// don't log the spread of natural lava or water that happens when new chunks are rendered
@@ -943,7 +706,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		if (event.isCancelled())
 			return;
 		// identify the cause of the event
-		String cause = myPluginWiki.getEntityName(event.getEntity(), true, true), action = "blew up";
+		String cause = myPluginWiki.getEntityName(event.getEntity(), true, true, false), action = "blew up";
 		if (event.getEntityType() == EntityType.CREEPER) {
 			double distance = 10000;
 			for (Entity entity : event.getEntity().getNearbyEntities(6, 6, 6))
@@ -1037,7 +800,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			if (block.getType() != Material.TNT && block.getType() != Material.FIRE) {
 				events.add(new Event(cause, action, block, null));
 				checkForReactionBreaks(new Event(cause, action, block, null), block_list);
-			} else if (block.getType() == Material.FIRE)
+			} else if (block.getType() == Material.TNT)
 				// find the PRIMED_TNT Entity closest to the block
 				server.getScheduler().scheduleSyncDelayedTask(mGD, new myGuardDog$1(console, "track T.N.T.", block.getLocation(), cause), 1);
 		// through experimentation, I discovered that if an entity explodes and the explosion redirects a PRIMED_TNT Entity, it actually replaces the old
@@ -1118,9 +881,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		else if (event.getBucket() == Material.LAVA_BUCKET)
 			events.add(new Event(event.getPlayer().getName(), "placed", "some lava", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
 					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-		else if (event.getBucket() == Material.MILK_BUCKET)
-			events.add(new Event(event.getPlayer().getName(), "dumped out", "milk", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event.getPlayer()
-					.getGameMode().equals(GameMode.CREATIVE)));
 		else
 			events.add(new Event(event.getPlayer().getName(), "dumped out", "something", event.getBlockClicked().getRelative(event.getBlockFace()).getLocation(), event
 					.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
@@ -1133,42 +893,15 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		Location event_location = event.getBlockClicked().getRelative(event.getBlockFace()).getLocation();
 		String object = myPluginWiki.getItemName(event_location.getBlock(), true, true, false);
 		if (object == null) {
-			object = "something with the I.D. " + event_location.getBlock().getTypeId();
+			object = String.valueOf(event_location.getBlock().getTypeId());
 			if (event_location.getBlock().getData() > 0)
 				object += ":" + event_location.getBlock().getData();
-		} else
-			object = replaceAll(object, "stationary ", "");
-		events.add(new Event(event.getPlayer().getName(), "removed", object, event_location, event.getPlayer().getGameMode() == GameMode.CREATIVE));
-		// lava flows at 1.5 s/m = 30 ticks/m (+1 buffer tick)
-		long delay = 31;
-		if (event.getBucket() == Material.WATER_BUCKET)
-			// water flows at 4m/s = 5 ticks/m (+1 buffer tick)
-			delay = 6;
-		for (int i = 0; i < 5; i++) {
-			int x = event_location.getBlockX(), y = event_location.getBlockY(), z = event_location.getBlockZ();
-			if (i == 0)
-				x--;
-			else if (i == 1)
-				x++;
-			else if (i == 2)
-				y--;
-			else if (i == 3)
-				z--;
-			else
-				z++;
-			Location location = new Location(event_location.getWorld(), x, y, z);
-			if (location.getBlock().isLiquid()) {
-				String new_event_object = myPluginWiki.getItemName(location.getBlock(), true, true, false);
-				if (new_event_object == null)
-					new_event_object = "something";
-				else
-					new_event_object = myGuardDog.replaceAll(object, "stationary ", "");
-				myGuardDog.server.getScheduler().scheduleSyncDelayedTask(
-						myGuardDog.mGD,
-						new myGuardDog$1(event.getPlayer(), "track liquid recession", new Event(event.getPlayer().getName(), "removed", new_event_object, location, event
-								.getPlayer().getGameMode() == GameMode.CREATIVE), delay), delay);
-			}
+			myPluginUtils.tellOps(ChatColor.DARK_RED + "Someone filled a bucket with something with the I.D. " + object + ". I've never heard of anything with the I.D. "
+					+ object + ". Can you make sure myPluginWiki is up to date?", true);
 		}
+		Event removal_event = new Event(event.getPlayer().getName(), "removed", object, event_location, event.getPlayer().getGameMode() == GameMode.CREATIVE);
+		events.add(removal_event);
+		checkForLiquidRecession(removal_event);
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -1498,5 +1231,4 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 					+ ") yet!");
 		inspecting_players.put(player.getName(), new Object[] { position, 0 });
 	}
-
 }
