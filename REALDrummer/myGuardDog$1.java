@@ -73,8 +73,6 @@ public class myGuardDog$1 implements Runnable {
 			trackReactionBreaks((Event) os[0]);
 		else if (method.equals("track Enderman placements"))
 			trackEndermanPlacements((Block) os[0]);
-		else if (method.equals("track liquid recession"))
-			trackLiquidRecession((Event) os[0]);
 		else if (method.equals("save the logs") || method.equals("hard save")) {
 			first_iteration = true;
 			display_message = (Boolean) os[0];
@@ -166,14 +164,6 @@ public class myGuardDog$1 implements Runnable {
 				}
 			} else
 				myGuardDog.events.add(new_event);
-	}
-
-	private void trackLiquidRecession(Event new_event) {
-		// if the type I.D. of the block logged in the event is air, log it as a removal
-		if (new_event.location.getBlock().getType() == Material.AIR) {
-			myGuardDog.events.add(new_event);
-			myGuardDog.checkForLiquidRecession(new_event);
-		}
 	}
 
 	private void saveTheLogsPartIChrono() {

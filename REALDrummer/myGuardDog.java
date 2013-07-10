@@ -34,7 +34,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
-import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
@@ -370,36 +369,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 							location, break_event.in_Creative_Mode)), 1);
 	}
 
-	public static void checkForLiquidRecession(Event removal_event) {
-		// lava flows at 1.5 s/m = 30 ticks/m (+1 buffer tick)
-		long delay = 31;
-		if (removal_event.objects[0].contains("water"))
-			// water flows at 4m/s = 5 ticks/m (+1 buffer tick)
-			delay = 6;
-		for (int i = 0; i < 5; i++) {
-			int x = removal_event.location.getBlockX(), y = removal_event.location.getBlockY(), z = removal_event.location.getBlockZ();
-			if (i == 0)
-				x--;
-			else if (i == 1)
-				x++;
-			else if (i == 2)
-				y--;
-			else if (i == 3)
-				z--;
-			else
-				z++;
-			Location location = new Location(removal_event.location.getWorld(), x, y, z);
-			if (location.getBlock().isLiquid()) {
-				String new_event_object = myPluginWiki.getItemName(location.getBlock(), true, true, false);
-				if (new_event_object != null)
-					server.getScheduler().scheduleSyncDelayedTask(
-							mGD,
-							new myGuardDog$1(server.getPlayerExact(removal_event.cause), "track liquid recession", new Event(removal_event.cause, "removed", new_event_object,
-									location, removal_event.in_Creative_Mode), delay), delay);
-			}
-		}
-	}
-
 	// listeners
 	@Override
 	public void actionPerformed(ActionEvent event) {
@@ -520,17 +489,10 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			// log fire placement as ignition and don't log air placement because that makes no sense!
 			if (event.getBlock().getType() != Material.AIR && event.getBlock().getType() != Material.FIRE) {
 				events.add(new Event(event.getPlayer().getName(), "placed", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-				if (event.getBlockReplacedState().getType() != Material.AIR) {
-					Event replacement_event =
-							new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event
-									.getBlockReplacedState().getData().getData(), true, true, false), event.getBlock().getLocation(),
-									event.getPlayer().getGameMode() == GameMode.CREATIVE);
-					events.add(replacement_event);
-					// track liquid recession
-					if (event.getBlockReplacedState().getType() == Material.WATER || event.getBlockReplacedState().getType() == Material.LAVA
-							|| event.getBlockReplacedState().getType() == Material.STATIONARY_WATER || event.getBlockReplacedState().getType() == Material.STATIONARY_LAVA)
-						checkForLiquidRecession(replacement_event);
-				}
+				if (event.getBlockReplacedState().getType() != Material.AIR)
+					events.add(new Event(event.getPlayer().getName(), "covered", myPluginWiki.getItemName(event.getBlockReplacedState().getTypeId(), event
+							.getBlockReplacedState().getData().getData(), true, true, false), event.getBlock().getLocation(),
+							event.getPlayer().getGameMode() == GameMode.CREATIVE));
 			} // consider "placing fire" the same as "setting fire to" something, but don't bother logging T.N.T. ignition
 			else if (event.getBlock().getType() == Material.FIRE && event.getBlockReplacedState().getType() != Material.TNT)
 				events.add(new Event(event.getPlayer().getName(), "set fire to", event.getBlock(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
@@ -632,7 +594,8 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 						&& !event.getPlayer().isSneaking())
 					action = "opened";
 			if (locked_blocks.containsKey(block) && !locked_blocks.get(block).equals(event.getPlayer().getName())
-					&& !trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName()) && !event.getPlayer().hasPermission("myguarddog.admin")) {
+					&& !(trust_list.get(locked_blocks.get(block)) != null && trust_list.get(locked_blocks.get(block)).contains(event.getPlayer().getName()))
+					&& !event.getPlayer().hasPermission("myguarddog.admin")) {
 				event.setCancelled(true);
 				event.getPlayer().sendMessage(
 						ChatColor.RED + "Sorry, but this " + myPluginWiki.getItemName(block, false, true, true) + " belongs to " + locked_blocks.get(block)
@@ -661,44 +624,6 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		if (event.isCancelled())
 			return;
 		events.add(new Event(event.getPlayer().getName(), "hung", event.getEntity(), event.getPlayer().getGameMode().equals(GameMode.CREATIVE)));
-	}
-
-	@EventHandler(priority = EventPriority.HIGHEST)
-	public void logWaterAndLavaSpreadAndBlocksBrokenByIt(BlockFromToEvent event) {
-		if (event.isCancelled())
-			return;
-		// if the block it's trying to spread to can't be broken by liquds, it won't actually spread, so cancel the event
-		if (!myPluginWiki.canBeBrokenByLiquids(event.getToBlock()) && !myPluginWiki.canBeBrokenByLiquids(event.getBlock()) || !event.getToBlock().isLiquid()
-				&& !event.getBlock().isLiquid() || event.getBlock().getType() == Material.AIR) {
-			event.setCancelled(true);
-			return;
-		}
-		String cause = null, action, object;
-		// lava spread
-		if (event.getBlock().getType() == Material.LAVA || event.getBlock().getType() == Material.STATIONARY_LAVA) {
-			action = "spread";
-			object = "some lava";
-			cause = findCause(new String[] { "placed", "spread" }, new String[] { object, object }, event.getBlock().getLocation());
-		} // water spread
-		else if (event.getBlock().getType() == Material.WATER || event.getBlock().getType() == Material.STATIONARY_WATER) {
-			action = "spread";
-			object = "some water";
-			cause = findCause(new String[] { "placed", "spread" }, new String[] { object, object }, event.getBlock().getLocation());
-		} else {
-			console.sendMessage(ChatColor.DARK_RED + "An unidentified BlockFromToEvent involving liquids occurred at (" + event.getBlock().getX() + ", "
-					+ event.getBlock().getY() + ", " + event.getBlock().getZ() + ")!");
-			console.sendMessage(ChatColor.YELLOW + event.getBlock().getType().toString() + ChatColor.WHITE + " (" + event.getBlock().getX() + ", " + event.getBlock().getY()
-					+ ", " + event.getBlock().getZ() + ") " + ChatColor.DARK_GRAY + ">> " + ChatColor.YELLOW + event.getToBlock().getType().toString() + ChatColor.WHITE
-					+ " (" + event.getToBlock().getX() + ", " + event.getToBlock().getY() + ", " + event.getToBlock().getZ() + ")");
-			return;
-		}
-		// don't log the spread of natural lava or water that happens when new chunks are rendered
-		if (cause == null)
-			return;
-		events.add(new Event(cause, action, object, event.getToBlock().getLocation(), null));
-		// if the lava or water doesn't flow onto an air block, it must have broken another block to get there
-		if (event.getToBlock().getType() != Material.AIR)
-			events.add(new Event(cause, "broke", event.getToBlock(), null));
 	}
 
 	@EventHandler(priority = EventPriority.HIGH)
@@ -899,9 +824,7 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 			myPluginUtils.tellOps(ChatColor.DARK_RED + "Someone filled a bucket with something with the I.D. " + object + ". I've never heard of anything with the I.D. "
 					+ object + ". Can you make sure myPluginWiki is up to date?", true);
 		}
-		Event removal_event = new Event(event.getPlayer().getName(), "removed", object, event_location, event.getPlayer().getGameMode() == GameMode.CREATIVE);
-		events.add(removal_event);
-		checkForLiquidRecession(removal_event);
+		events.add(new Event(event.getPlayer().getName(), "removed", object, event_location, event.getPlayer().getGameMode() == GameMode.CREATIVE));
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
