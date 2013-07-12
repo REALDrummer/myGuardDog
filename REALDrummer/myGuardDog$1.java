@@ -64,8 +64,6 @@ public class myGuardDog$1 implements Runnable {
 
 	// run() doesn't actually perform any real action; it's an operator, by which I mean it takes the input and directs the processor to the appropriate method
 	public void run() {
-		// TODO TEMP
-		myGuardDog.console.sendMessage(ChatColor.YELLOW + "myGuardDog executed \"" + method + "\".");
 		if (method.equals("track T.N.T."))
 			// the os for this are never changed through the course of this method, so we don't need to make initializer variables for them
 			trackTNT((Location) os[0], (String) os[1]);

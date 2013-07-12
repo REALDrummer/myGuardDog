@@ -34,6 +34,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
@@ -747,22 +748,9 @@ public class myGuardDog extends JavaPlugin implements Listener, ActionListener {
 		// are important, which are logged in logFireDamage())
 		if (event.getPlayer() == null && !event.getCause().equals(IgniteCause.SPREAD)) {
 			String cause = null;
-			if (event.getCause() == IgniteCause.LAVA) {
-				// try to find out if the lava that caused the fire was put there by someone
-				for (int x = event.getBlock().getX() - 1; x <= event.getBlock().getX() + 1; x++)
-					for (int y = event.getBlock().getY() - 1; y <= event.getBlock().getY() + 1; y++)
-						for (int z = event.getBlock().getZ() - 1; z <= event.getBlock().getZ() + 1; z++)
-							if (new Location(event.getBlock().getWorld(), x, y, z).getBlock().getType() == Material.STATIONARY_LAVA
-									|| new Location(event.getBlock().getWorld(), x, y, z).getBlock().getType() == Material.LAVA) {
-								String possible_cause = findCause(true, "some lava", new Location(event.getBlock().getWorld(), x, y, z));
-								if (possible_cause != null) {
-									cause = possible_cause;
-									break;
-								}
-							}
-				if (cause == null)
-					return;
-			} else if (event.getCause() == IgniteCause.LIGHTNING)
+			if (event.getCause() == IgniteCause.LAVA)
+				cause = "some lava";
+			else if (event.getCause() == IgniteCause.LIGHTNING)
 				cause = "some lightning";
 			else if (event.getCause() == IgniteCause.FIREBALL)
 				cause = "a fireball";
