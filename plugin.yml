@@ -1,0 +1,42 @@
+name: myGuardDog
+main: REALDrummer.myGuardDog
+version: 1
+depend: [myPluginWiki]
+description: >
+             Griefers can go find a different server to grief on.
+commands:
+   convert:
+      aliases: []
+      description: This command converts the designated log file to a readable .txt in the myGuardDog plugin data folder.
+      usage: |
+           /<command> ["chrono"/"position"/"cause"] [log file name]
+   id:
+      aliases: [ids]
+      description: This command gives you the I.D. for an item that your holding or the item you specify or it gives you the name of the item with the given I.D.
+      usage: |
+           /<command> (item name/I.D.)
+   inspector:
+      aliases: [inspect, insp]
+      description: This toggles the inspector for the player that uses it.
+      usage: |
+           /<command>
+   myGuardDog:
+      aliases: [mGD]
+      description: This command updates the save files with all the new info from the server or loads all the data from the save files to the server.
+      usage: |
+           /<command> ["load"/"save"] ("the") ("logs") OR /<command> debug
+   rollback:
+      aliases: [rb]
+      description: This command undoes all the events within the given parameters.
+      usage: |
+           /<command> (by:[cause1,cause2,...]) (a:[action1,action2,...]) (o:[object1,object2,...]) (r:[radius])
+   trust:
+      aliases: [friend, befriend]
+      description: This command adds the specified player to the command sender's trust list, allowing the specified player access to the command sender's locked chests, doors, etc.
+      usage: |
+           /<command> [player]
+   untrust:
+      aliases: [mistrust, unfriend]
+      description: This command removes the specified player from the command sender's trust list, denying the specified player access to the command sender's locked chests, doors, etc.
+      usage: |
+           /<command> [player]
